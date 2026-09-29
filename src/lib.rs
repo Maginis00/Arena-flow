@@ -17,6 +17,7 @@ pub mod enemies;
 pub mod flow_director;
 pub mod pickups;
 pub mod player;
+pub mod playtest;
 pub mod telemetry;
 pub mod waves;
 pub mod weapons;
