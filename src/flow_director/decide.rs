@@ -1,37 +1,49 @@
 //! The pure decision. No ECS types beyond plain data; unit-tested below.
 
-use super::api::{DecisionReason, Difficulty, Signal, Step, WaveLevers};
+use super::api::{DecisionReason, Difficulty, RiskReading, Signal, WaveLevers};
 use crate::waves::api::WaveReport;
 
-/// Thresholds that turn a report into a [`Signal`]. All PLACEHOLDER values.
+/// The flow band and how the director moves toward it. All PLACEHOLDER values.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct DirectorConfig {
-    /// A clear is "fast" if it took at most this many seconds per enemy spawned.
-    pub fast_secs_per_enemy: f32,
-    /// A clear is "slow" (close) if it took more than this many seconds per enemy.
-    pub slow_secs_per_enemy: f32,
-    /// "High hp": lost at most this fraction of max hp during the wave.
-    pub high_hp_max_loss: f32,
-    /// "Low hp": lost at least this fraction of max hp during the wave.
-    pub low_hp_min_loss: f32,
+    /// Smoothed risk below this is too safe.
+    pub band_low: f32,
+    /// Smoothed risk above this is too risky.
+    pub band_high: f32,
+    /// Weight of the newest wave in the smoothed risk; the rest is history.
+    pub smoothing: f32,
+    /// Quarter steps up when too safe.
+    pub up_quarters: i16,
+    /// Quarter steps down when too risky.
+    pub down_quarters: i16,
+    /// Quarter steps down when the player died.
+    pub died_quarters: i16,
 }
 
 impl Default for DirectorConfig {
     fn default() -> Self {
         Self {
-            fast_secs_per_enemy: 1.5, // PLACEHOLDER
-            slow_secs_per_enemy: 3.0, // PLACEHOLDER
-            high_hp_max_loss: 0.25,   // PLACEHOLDER
-            low_hp_min_loss: 0.6,     // PLACEHOLDER
+            band_low: 0.20,   // PLACEHOLDER
+            band_high: 0.40,  // PLACEHOLDER
+            smoothing: 0.2,   // PLACEHOLDER
+            up_quarters: 1,   // PLACEHOLDER: +0.25
+            down_quarters: 2, // PLACEHOLDER: -0.5
+            died_quarters: 4, // PLACEHOLDER: -1.0
         }
     }
 }
 
-/// What the director remembers between waves, for hysteresis.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+impl DirectorConfig {
+    pub fn in_band(&self, risk: f32) -> bool {
+        (self.band_low..=self.band_high).contains(&risk)
+    }
+}
+
+/// What the director remembers between waves.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub struct DirectorMemory {
-    pub last_signal: Option<Signal>,
-    pub changed_last_wave: bool,
+    /// Smoothed risk so far; `None` before the first wave.
+    pub smoothed_risk: Option<f32>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -39,114 +51,133 @@ pub struct Decision {
     pub difficulty: Difficulty,
     pub signal: Signal,
     pub reason: DecisionReason,
+    pub risk: RiskReading,
     pub memory: DirectorMemory,
+}
+
+/// How close the wave came to killing the player, in `[0, 1]`: the share of
+/// the hp the player brought into the wave that it took away, and 1 if the
+/// player died. Hp carries over between waves, so measuring against the hp
+/// at the start keeps damage from earlier waves out of this wave's reading.
+pub fn wave_risk(report: &WaveReport) -> f32 {
+    if report.player_died || report.start_hp == 0 {
+        return 1.0;
+    }
+    let lost = report.start_hp.saturating_sub(report.lowest_hp);
+    (lost as f32 / report.start_hp as f32).clamp(0.0, 1.0)
 }
 
 /// Decide the difficulty of the next wave from the one just finished.
 ///
-/// - cleared, fast, high hp: +1
-/// - cleared but close (low hp or slow), or unremarkable: hold
-/// - player died: -1
+/// The wave's risk is blended into a smoothed risk, then:
+/// - player died: down `died_quarters` at once
+/// - smoothed risk above the band: down `down_quarters`
+/// - inside the band: hold
+/// - below the band: up `up_quarters`
 ///
-/// Clamped to `1..=10`. Hysteresis: if difficulty changed after the previous
-/// wave, it only changes again when the same signal repeats.
+/// Down steps are bigger than up steps on purpose: overshooting into danger
+/// costs more engagement than staying a little safe. Smoothing is the
+/// hysteresis: a death keeps the smoothed risk high for a few waves, so the
+/// director does not climb straight back.
 pub fn decide(
     current: Difficulty,
     report: &WaveReport,
     memory: DirectorMemory,
     config: &DirectorConfig,
 ) -> Decision {
-    let (signal, in_band_reason) = classify(report, config);
-    let step = signal.step();
+    let wave = wave_risk(report);
+    let smoothed = match memory.smoothed_risk {
+        Some(previous) => config.smoothing * wave + (1.0 - config.smoothing) * previous,
+        None => wave,
+    };
 
-    let blocked_by_hysteresis =
-        step != Step::Hold && memory.changed_last_wave && memory.last_signal != Some(signal);
-
-    let (difficulty, reason) = if blocked_by_hysteresis {
-        (current, DecisionReason::HeldHysteresis(signal))
+    let (signal, quarters) = if report.player_died {
+        (Signal::Died, -config.died_quarters)
+    } else if smoothed > config.band_high {
+        (Signal::TooRisky, -config.down_quarters)
+    } else if smoothed < config.band_low {
+        (Signal::TooEasy, config.up_quarters)
     } else {
-        let next = current.stepped(step);
-        let reason = match (step, next == current) {
-            (Step::Hold, _) => in_band_reason,
-            (Step::Up, true) => DecisionReason::HeldAtMax,
-            (Step::Up, false) => DecisionReason::Raised,
-            (Step::Down, true) => DecisionReason::HeldAtMin,
-            (Step::Down, false) => DecisionReason::Lowered,
-        };
-        (next, reason)
+        (Signal::InBand, 0)
+    };
+
+    let difficulty = current.shifted(quarters);
+    let reason = match (signal, difficulty == current) {
+        (Signal::InBand, _) => DecisionReason::HeldInBand,
+        (Signal::TooEasy, true) => DecisionReason::HeldAtMax,
+        (Signal::TooEasy, false) => DecisionReason::Raised,
+        (Signal::TooRisky | Signal::Died, true) => DecisionReason::HeldAtMin,
+        (Signal::TooRisky, false) => DecisionReason::LoweredRisky,
+        (Signal::Died, false) => DecisionReason::LoweredDied,
     };
 
     Decision {
         difficulty,
         signal,
         reason,
+        risk: RiskReading { wave, smoothed },
         memory: DirectorMemory {
-            last_signal: Some(signal),
-            changed_last_wave: difficulty != current,
+            smoothed_risk: Some(smoothed),
         },
     }
 }
 
-/// Signal plus the hold reason to use if the signal is `InBand`.
-fn classify(report: &WaveReport, config: &DirectorConfig) -> (Signal, DecisionReason) {
-    if !report.cleared() {
-        return (Signal::TooHard, DecisionReason::Lowered);
-    }
-    let per_enemy = report.duration_secs / report.enemies_spawned.max(1) as f32;
-    let loss = report.damage_fraction();
-
-    if loss >= config.low_hp_min_loss {
-        (Signal::InBand, DecisionReason::HeldLowHp)
-    } else if per_enemy > config.slow_secs_per_enemy {
-        (Signal::InBand, DecisionReason::HeldSlowClear)
-    } else if per_enemy <= config.fast_secs_per_enemy && loss <= config.high_hp_max_loss {
-        (Signal::TooEasy, DecisionReason::Raised)
-    } else {
-        (Signal::InBand, DecisionReason::HeldInBand)
-    }
-}
-
-/// Map difficulty to the three v1 levers. PLACEHOLDER curve: linear per level.
+/// Map difficulty to the three v1 levers. PLACEHOLDER curve: linear per level,
+/// interpolated between whole levels.
 pub fn levers_for(difficulty: Difficulty) -> WaveLevers {
-    const BASE_ENEMY_COUNT: u32 = 4; // PLACEHOLDER
-    const ENEMY_COUNT_PER_LEVEL: u32 = 2; // PLACEHOLDER
+    const BASE_ENEMY_COUNT: f32 = 4.0; // PLACEHOLDER
+    const ENEMY_COUNT_PER_LEVEL: f32 = 2.0; // PLACEHOLDER
     const BASE_ENEMY_SPEED: f32 = 90.0; // PLACEHOLDER, world units / s
     const ENEMY_SPEED_PER_LEVEL: f32 = 12.0; // PLACEHOLDER
-    const BASE_CONTACT_DAMAGE: u32 = 8; // PLACEHOLDER, hp per contact hit
-    const CONTACT_DAMAGE_PER_LEVEL: u32 = 2; // PLACEHOLDER
+    const BASE_CONTACT_DAMAGE: f32 = 8.0; // PLACEHOLDER, hp per contact hit
+    const CONTACT_DAMAGE_PER_LEVEL: f32 = 2.0; // PLACEHOLDER
 
-    let above_min = u32::from(difficulty.get() - Difficulty::MIN.get());
+    let above_min = difficulty.level() - Difficulty::MIN.level();
     WaveLevers {
-        enemy_count: BASE_ENEMY_COUNT + ENEMY_COUNT_PER_LEVEL * above_min,
-        enemy_speed: BASE_ENEMY_SPEED + ENEMY_SPEED_PER_LEVEL * above_min as f32,
-        contact_damage: BASE_CONTACT_DAMAGE + CONTACT_DAMAGE_PER_LEVEL * above_min,
+        enemy_count: (BASE_ENEMY_COUNT + ENEMY_COUNT_PER_LEVEL * above_min).round() as u32,
+        enemy_speed: BASE_ENEMY_SPEED + ENEMY_SPEED_PER_LEVEL * above_min,
+        contact_damage: (BASE_CONTACT_DAMAGE + CONTACT_DAMAGE_PER_LEVEL * above_min).round() as u32,
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::flow_director::api::DifficultyOutOfRange;
     use crate::waves::api::WaveIndex;
 
     fn difficulty(level: u8) -> Difficulty {
         Difficulty::new(level).expect("test difficulty in range")
     }
 
-    /// 10 enemies, 100 max hp; tweak per case.
-    fn report(duration_secs: f32, damage_taken: u32, player_died: bool) -> WaveReport {
+    fn quarters(q: u8) -> Difficulty {
+        Difficulty::from_quarters(q).expect("test difficulty in range")
+    }
+
+    /// 100 max hp, full at the start; `lowest_hp` sets the risk.
+    fn report(lowest_hp: u32, player_died: bool) -> WaveReport {
         WaveReport {
             index: WaveIndex(1),
             attempt: 1,
             difficulty: difficulty(5),
-            duration_secs,
+            duration_secs: 10.0,
             enemies_spawned: 10,
             enemies_killed: if player_died { 4 } else { 10 },
-            damage_taken,
+            damage_taken: 100 - lowest_hp,
+            hits_taken: 3,
             player_max_hp: 100,
+            start_hp: 100,
+            lowest_hp: if player_died { 0 } else { lowest_hp },
             player_died,
             shots_fired: 40,
             shots_hit: 30,
             pickups_collected: 0,
+        }
+    }
+
+    fn after(smoothed: f32) -> DirectorMemory {
+        DirectorMemory {
+            smoothed_risk: Some(smoothed),
         }
     }
 
@@ -155,116 +186,138 @@ mod tests {
     }
 
     #[test]
-    fn too_easy_raises() {
+    fn risk_is_how_close_the_player_came_to_dying() {
+        assert_eq!(wave_risk(&report(100, false)), 0.0);
+        assert_eq!(wave_risk(&report(40, false)), 0.6);
+        assert_eq!(wave_risk(&report(80, true)), 1.0);
+    }
+
+    #[test]
+    fn risk_ignores_damage_carried_in_from_earlier_waves() {
+        // Came in at 40 hp and took no damage: this wave was safe.
+        let untouched = WaveReport {
+            start_hp: 40,
+            lowest_hp: 40,
+            ..report(100, false)
+        };
+        assert_eq!(wave_risk(&untouched), 0.0);
+        // Came in at 40 hp and dropped to 10: lost three quarters of it.
+        let close = WaveReport {
+            start_hp: 40,
+            lowest_hp: 10,
+            ..report(100, false)
+        };
+        assert_eq!(wave_risk(&close), 0.75);
+    }
+
+    #[test]
+    fn too_safe_raises_a_quarter() {
         let d = decide(
             difficulty(5),
-            &report(8.0, 5, false),
+            &report(95, false),
             fresh(),
             &DirectorConfig::default(),
         );
         assert_eq!(d.signal, Signal::TooEasy);
-        assert_eq!(d.difficulty, difficulty(6));
+        assert_eq!(d.difficulty, quarters(21));
         assert_eq!(d.reason, DecisionReason::Raised);
-        assert!(d.memory.changed_last_wave);
     }
 
     #[test]
     fn in_band_holds() {
-        // Cleared, but lost 70% hp: close call.
         let d = decide(
             difficulty(5),
-            &report(8.0, 70, false),
+            &report(70, false),
             fresh(),
             &DirectorConfig::default(),
         );
         assert_eq!(d.signal, Signal::InBand);
         assert_eq!(d.difficulty, difficulty(5));
-        assert_eq!(d.reason, DecisionReason::HeldLowHp);
-
-        // Cleared with high hp but slowly.
-        let d = decide(
-            difficulty(5),
-            &report(45.0, 5, false),
-            fresh(),
-            &DirectorConfig::default(),
-        );
-        assert_eq!(d.difficulty, difficulty(5));
-        assert_eq!(d.reason, DecisionReason::HeldSlowClear);
+        assert_eq!(d.reason, DecisionReason::HeldInBand);
     }
 
     #[test]
-    fn too_hard_lowers() {
+    fn too_risky_lowers_a_half() {
         let d = decide(
             difficulty(5),
-            &report(20.0, 100, true),
+            &report(40, false),
             fresh(),
             &DirectorConfig::default(),
         );
-        assert_eq!(d.signal, Signal::TooHard);
+        assert_eq!(d.signal, Signal::TooRisky);
+        assert_eq!(d.difficulty, quarters(18));
+        assert_eq!(d.reason, DecisionReason::LoweredRisky);
+    }
+
+    #[test]
+    fn death_lowers_a_whole_level_whatever_the_history() {
+        let d = decide(
+            difficulty(5),
+            &report(0, true),
+            after(0.0),
+            &DirectorConfig::default(),
+        );
+        assert_eq!(d.signal, Signal::Died);
         assert_eq!(d.difficulty, difficulty(4));
-        assert_eq!(d.reason, DecisionReason::Lowered);
+        assert_eq!(d.reason, DecisionReason::LoweredDied);
     }
 
     #[test]
-    fn hysteresis_holds_a_flip_until_the_signal_repeats() {
-        let config = DirectorConfig::default();
-        let raised = decide(difficulty(5), &report(8.0, 5, false), fresh(), &config);
-        assert_eq!(raised.difficulty, difficulty(6));
-
-        // Died right after a raise: different signal, so hold.
-        let held = decide(
-            raised.difficulty,
-            &report(20.0, 100, true),
-            raised.memory,
-            &config,
-        );
-        assert_eq!(held.difficulty, difficulty(6));
-        assert_eq!(held.reason, DecisionReason::HeldHysteresis(Signal::TooHard));
-
-        // Died again: the signal repeated, so lower.
-        let lowered = decide(
-            held.difficulty,
-            &report(20.0, 100, true),
-            held.memory,
-            &config,
-        );
-        assert_eq!(lowered.difficulty, difficulty(5));
+    fn down_steps_are_bigger_than_up_steps() {
+        let c = DirectorConfig::default();
+        assert!(c.down_quarters > c.up_quarters);
+        assert!(c.died_quarters > c.down_quarters);
     }
 
     #[test]
-    fn repeated_signal_may_change_twice_in_a_row() {
-        let config = DirectorConfig::default();
-        let first = decide(difficulty(5), &report(8.0, 5, false), fresh(), &config);
-        let second = decide(
-            first.difficulty,
-            &report(8.0, 5, false),
-            first.memory,
-            &config,
-        );
-        assert_eq!(second.difficulty, difficulty(7));
+    fn smoothing_blends_the_new_wave_into_history() {
+        let c = DirectorConfig::default();
+        // One very safe wave after risky history stays in band: no jump up.
+        let d = decide(difficulty(5), &report(100, false), after(0.45), &c);
+        assert!((d.risk.smoothed - 0.36).abs() < 1e-5);
+        assert_eq!(d.reason, DecisionReason::HeldInBand);
+        assert_eq!(d.memory.smoothed_risk, Some(d.risk.smoothed));
+    }
+
+    #[test]
+    fn a_death_keeps_the_director_from_climbing_straight_back() {
+        let c = DirectorConfig::default();
+        let died = decide(difficulty(5), &report(0, true), after(0.5), &c);
+        let next = decide(died.difficulty, &report(100, false), died.memory, &c);
+        assert!(next.difficulty <= died.difficulty);
     }
 
     #[test]
     fn clamps_at_bounds() {
-        let config = DirectorConfig::default();
-        let top = decide(Difficulty::MAX, &report(8.0, 5, false), fresh(), &config);
+        let c = DirectorConfig::default();
+        let top = decide(Difficulty::MAX, &report(100, false), fresh(), &c);
         assert_eq!(top.difficulty, Difficulty::MAX);
         assert_eq!(top.reason, DecisionReason::HeldAtMax);
 
-        let bottom = decide(Difficulty::MIN, &report(20.0, 100, true), fresh(), &config);
+        let bottom = decide(Difficulty::MIN, &report(0, true), fresh(), &c);
         assert_eq!(bottom.difficulty, Difficulty::MIN);
         assert_eq!(bottom.reason, DecisionReason::HeldAtMin);
     }
 
     #[test]
-    fn difficulty_rejects_out_of_range() {
-        assert_eq!(
-            Difficulty::new(0),
-            Err(super::super::api::DifficultyOutOfRange(0))
-        );
-        assert_eq!(
-            Difficulty::new(11),
-            Err(super::super::api::DifficultyOutOfRange(11))
-        );
+    fn difficulty_is_exact_in_quarters() {
+        assert_eq!(difficulty(3).quarters(), 12);
+        assert_eq!(quarters(13).level(), 3.25);
+        assert_eq!(quarters(13).to_string(), "3.25");
+        assert_eq!(difficulty(3).shifted(-100), Difficulty::MIN);
+        assert_eq!(difficulty(3).shifted(100), Difficulty::MAX);
+        assert_eq!(Difficulty::new(0), Err(DifficultyOutOfRange(0)));
+        assert_eq!(Difficulty::new(11), Err(DifficultyOutOfRange(44)));
+        assert_eq!(Difficulty::from_quarters(41), Err(DifficultyOutOfRange(41)));
+    }
+
+    #[test]
+    fn levers_match_the_old_curve_on_whole_levels_and_interpolate_between() {
+        let at = |d| levers_for(d);
+        assert_eq!(at(difficulty(1)).enemy_count, 4);
+        assert_eq!(at(difficulty(10)).enemy_count, 22);
+        assert_eq!(at(difficulty(10)).contact_damage, 26);
+        assert_eq!(at(quarters(6)).enemy_count, 5); // level 1.5
+        assert_eq!(at(quarters(6)).enemy_speed, 96.0);
     }
 }

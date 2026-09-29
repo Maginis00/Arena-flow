@@ -66,26 +66,46 @@ director chose.
 
 ## How difficulty moves
 
-After each wave the director classifies the report:
+After each wave the director reads its risk: the share of the hp the player
+brought into the wave that the wave took away (1 if the player died). Hp
+carries over between waves, so earlier damage does not count again. The risk is
+smoothed over recent waves, then:
 
-- cleared fast with high hp: +1
-- cleared but close (low hp or slow), or unremarkable: hold
 - player died: -1
+- smoothed risk above the band: -0.5
+- inside the band: hold
+- below the band: +0.25
 
-Difficulty is clamped to 1..=10. Hysteresis: after a change, the next wave can
-change difficulty again only if the same signal repeats. Difficulty drives
-enemy count, enemy speed and enemy contact damage only. All thresholds and
-curves are placeholder constants marked `PLACEHOLDER` in the source.
+Difficulty runs from 1.0 to 10.0 in quarter steps. Down steps are bigger than up
+steps on purpose: overshooting into danger costs more than staying a little
+safe. Difficulty drives enemy count, enemy speed and enemy contact damage only,
+interpolated between whole levels. All thresholds and curves are placeholder
+constants marked `PLACEHOLDER` in the source.
 
 ## Playtest bots
 
 `cargo run --release --example playtest` runs four simulated players
 (novice, casual, skilled, expert) through the real game plugins, headless and
 deterministic, and prints a table of where the flow director settled each one:
-waves, deaths, settled difficulty, share of waves the director read as in band,
-hit rate, clear speed, hp lost and pickups taken. Options: `--minutes N`
-(simulated, default 10), `--seeds N` (varies aim wobble), `--tier NAME`
-(repeatable).
+waves, deaths, settled difficulty, share of decisions held in band, share of
+waves whose own risk was in band, median risk, hit rate, clear speed, hp lost and pickups taken. A second table splits the
+run by weapon: share of wave time held, kills (credited to the weapon that
+landed the killing blow), hit rate, and damage taken and deaths while holding
+it. Options: `--minutes N` (simulated, default 10), `--seeds N` (varies aim
+wobble), `--tier NAME` (repeatable), `--weapon NAME` (locks the bot to one
+weapon, repeatable), `--matrix` (every tier with its own choice and locked to
+each weapon), `--human` (adds your own sessions, see below), `--human-only`.
+
+### Your own sessions in the report
+
+When you play in a window (`cargo run` or `cargo run --release`), the game
+writes one file per launch to `playtests/session-<unix time>.jsonl` in the
+folder you started it from (gitignored). Each finished wave adds one line:
+the wave report, the director's decision, per-weapon numbers, and every
+pickup with the time into the wave, your hp and your weapon when you took it.
+Then `cargo run --release --example playtest -- --human` puts your sessions
+("you: session-...") in the same tables as the bots, or `--human-only` shows
+just yours.
 
 Bots move with `W` `A` `S` `D`, switch weapons with `1` `2` `3` and fire the same
 intent the mouse does. Tiers differ only in measurable limits: reaction delay,

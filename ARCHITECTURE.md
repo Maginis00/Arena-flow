@@ -71,13 +71,13 @@ and read with `MessageReader`. There are no observers in this slice.
 | Message | Owner (api) | Written by | Read by |
 |---|---|---|---|
 | `FireRequested` | player | player `request_fire` | weapons `fire` |
-| `PlayerSpawned` | player | player `spawn_player`, `respawn_on_wave_start` | waves `record_director`, telemetry |
+| `PlayerSpawned` | player | player `spawn_player`, `respawn_on_wave_start` | waves `record_director`, `track_hp`, telemetry |
 | `WeaponSwitched` | weapons | weapons `announce_initial`, `apply_selection` | telemetry |
 | `ShotFired` | weapons | weapons `fire` | combat `resolve_instant_shots`, waves `measure`, debug_render `draw_flashes` |
 | `Hit` | combat | combat `detect_projectile_hits`, `resolve_instant_shots`; enemies `contact_damage` | combat `apply_hits`, waves `measure` (shots_hit) |
 | `HealGranted` | combat | pickups `collect` | combat `apply_heals` |
-| `PlayerHealed` | combat | combat `apply_heals` | telemetry |
-| `PlayerDamaged` | combat | combat `apply_hits` | waves `measure`, telemetry |
+| `PlayerHealed` | combat | combat `apply_heals` | waves `track_hp`, telemetry |
+| `PlayerDamaged` | combat | combat `apply_hits` | waves `track_hp`, `measure`, telemetry |
 | `PlayerDied` | combat | combat `apply_hits` | player `despawn_on_death`, waves `measure`, pickups `clear_on_death` |
 | `EnemyKilled` | combat | combat `apply_hits` | waves `measure`, pickups `drop_on_kills`, telemetry |
 | `EnemySpawned` | enemies | enemies `spawn_from_queue` | waves `measure` |
@@ -116,7 +116,7 @@ Notes:
 | 3 | `Movement` | player `move_player`, enemies `chase_player`, weapons `move_projectiles` |
 | 4 | `Detect` | combat `detect_projectile_hits`, `resolve_instant_shots`; enemies `contact_damage`; pickups `collect` |
 | 5 | `Resolve` | combat `apply_heals` then `apply_hits` |
-| 6 | `Progress` | waves `record_director` then `measure` then `advance` |
+| 6 | `Progress` | waves `record_director` then `track_hp` then `measure` then `advance` |
 | 7 | `Direct` | flow_director `adjust_after_wave` |
 | 8 | `Cleanup` | arena `despawn_outside`, enemies `clear_on_wave_end`, player `despawn_on_death` then `respawn_on_wave_start`, pickups `clear_on_death` then `tick_effects` |
 
@@ -143,7 +143,10 @@ happen on simulation ticks instead of frame boundaries.
 pure and unit-tested (`cargo test`). The system around it only reads
 `WaveReport`, stores `DirectorMemory`, and writes `DifficultyAdjusted`.
 `flow_director::levers_for(difficulty)` maps difficulty to the three v1
-levers: enemy count, enemy speed, enemy contact damage. The decision applies
+levers: enemy count, enemy speed, enemy contact damage. `Difficulty` counts
+quarter steps from 1.0 to 10.0. The decision reads the wave's risk
+(`wave_risk`: share of the wave's starting hp lost, 1 on death), smooths it in
+`DirectorMemory`, and steps down faster than up. The decision applies
 to the next wave only, because waves reads the levers when that wave starts.
 
 ## Playtest bots (playtest)
@@ -157,3 +160,14 @@ and writes `FireRequested` as the mouse would. It sees the world through a delay
 line of snapshots (reaction time). Pure parts are split out and unit-tested:
 `steering` (dodge, wall push, eight-way snapping), `choices` (pickup judgement,
 weapon choice), `perception` (delay line, deterministic rng) and `summary`.
+
+## Session record (telemetry)
+
+Telemetry also builds a `telemetry::api::SessionRecord` in `Update`: one
+`WaveRecord` per finished wave with the `WaveReport`, the director's decision,
+a `WeaponTally` per weapon (time held, shots, hits, kills by killing blow,
+damage taken and deaths while held) and every `PickupTaken` (time into wave,
+hp, weapon). When a `PrimaryWindow` exists, `record_file` appends each wave as
+a JSON line to `playtests/session-<unix time>.jsonl`; headless apps write
+nothing. The playtest report reads the same record from bot runs and, with
+`--human`, from those files.
