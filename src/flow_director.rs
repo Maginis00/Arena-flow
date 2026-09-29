@@ -6,7 +6,7 @@
 pub mod api;
 mod decide;
 
-pub use decide::{Decision, DirectorConfig, DirectorMemory, decide, levers_for};
+pub use decide::{Decision, DirectorConfig, DirectorMemory, decide, levers_for, wave_risk};
 
 use crate::app_setup::api::SimSet;
 use crate::waves::api::WaveReport;
@@ -49,6 +49,7 @@ fn announce_initial(state: Res<DirectorState>, mut adjusted: MessageWriter<Diffi
         difficulty: state.difficulty,
         reason: DecisionReason::Initial,
         levers: levers_for(state.difficulty),
+        risk: None,
     });
 }
 
@@ -68,6 +69,7 @@ fn adjust_after_wave(
             difficulty: decision.difficulty,
             reason: decision.reason,
             levers: levers_for(decision.difficulty),
+            risk: Some(decision.risk),
         });
     }
 }

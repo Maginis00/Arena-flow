@@ -33,6 +33,7 @@ impl Plugin for WavesPlugin {
                 FixedUpdate,
                 (
                     measure::record_director,
+                    measure::track_hp,
                     measure::measure,
                     transitions::advance,
                 )

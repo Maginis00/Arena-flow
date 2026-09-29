@@ -8,6 +8,7 @@
 mod bot;
 mod choices;
 mod perception;
+mod report;
 mod session;
 mod steering;
 mod summary;
@@ -15,7 +16,8 @@ mod tier;
 mod watch;
 
 pub use bot::PlaytestBotPlugin;
-pub use session::{SessionConfig, SessionLog, play};
-pub use summary::{Summary, table};
+pub use report::{Named, pickup_table, table, weapon_table};
+pub use session::{SessionConfig, play};
+pub use summary::Summary;
 pub use tier::{PickupPolicy, SkillTier, TierParams, WeaponPolicy};
 pub use watch::{WatchConfig, watch};

@@ -116,25 +116,25 @@ fn idle_player_retries_the_wave_and_difficulty_falls_to_floor() {
     let attempts: Vec<u32> = observed.reports.iter().map(|r| r.attempt).collect();
     assert_eq!(&attempts[..3], &[1, 2, 3]);
 
-    let levels: Vec<u8> = observed
+    let levels: Vec<f32> = observed
         .adjustments
         .iter()
-        .map(|a| a.difficulty.get())
+        .map(|a| a.difficulty.level())
         .collect();
     assert_eq!(
         observed.adjustments.first().map(|a| a.reason),
         Some(DecisionReason::Initial)
     );
-    // 3 initial, then -1 (fresh memory), -1 (same signal repeats), then held at the floor.
-    assert_eq!(&levels[..4], &[3, 2, 1, 1], "levels: {levels:?}");
+    // 3 initial, then -1 per death, then held at the floor.
+    assert_eq!(&levels[..4], &[3.0, 2.0, 1.0, 1.0], "levels: {levels:?}");
     assert_eq!(observed.adjustments[3].reason, DecisionReason::HeldAtMin);
 
-    let ran_at: Vec<u8> = observed
+    let ran_at: Vec<f32> = observed
         .reports
         .iter()
-        .map(|r| r.difficulty.get())
+        .map(|r| r.difficulty.level())
         .collect();
-    assert_eq!(&ran_at[..3], &[3, 2, 1], "ran at: {ran_at:?}");
+    assert_eq!(&ran_at[..3], &[3.0, 2.0, 1.0], "ran at: {ran_at:?}");
 }
 
 fn bot_clears_waves(key: KeyCode, digit: &str, weapon: WeaponKind) {
@@ -155,7 +155,7 @@ fn bot_clears_waves(key: KeyCode, digit: &str, weapon: WeaponKind) {
             .iter()
             .map(|r| (
                 r.index.0,
-                r.difficulty.get(),
+                r.difficulty.level(),
                 r.cleared(),
                 r.damage_taken,
                 r.pickups_collected

@@ -5,7 +5,9 @@
 use super::choices::{choose_weapon, reach, wants_pickup};
 use super::perception::{DelayedView, Rng, Snapshot};
 use super::steering::{dodge, eight_way, nearest, rotate, wall_push};
-use super::tier::{PickupPolicy, SkillTier, TierParams, WeaponPolicy};
+#[cfg(doc)]
+use super::tier::SkillTier;
+use super::tier::{PickupPolicy, TierParams};
 use crate::app_setup::api::{FIXED_HZ, SimSet};
 use crate::arena::api::ArenaBounds;
 use crate::combat::api::Health;
@@ -22,22 +24,21 @@ const PICKUP_PULL: f32 = 0.6;
 /// Weighed pickers sidestep unwanted pickups this close.
 const PICKUP_SIDESTEP_RADIUS: f32 = 40.0;
 const CENTRE_DRIFT: f32 = 0.3;
+/// Holding melee: dodge only enemies this close, walk in when all are this far.
+const MELEE_DODGE_RADIUS: f32 = 45.0;
+const MELEE_STANDOFF: f32 = 200.0;
+const MELEE_PULL: f32 = 0.8;
 
-/// Plays the game at one skill tier. `seed` varies aim wobble between runs.
-/// `weapon` pins one weapon instead of the tier's own weapon policy.
+/// Plays the game with one tier's limits (see [`SkillTier::params`]).
+/// `seed` varies aim wobble between runs.
 pub struct PlaytestBotPlugin {
-    pub tier: SkillTier,
+    pub params: TierParams,
     pub seed: u32,
-    pub weapon: Option<WeaponKind>,
 }
 
 impl Plugin for PlaytestBotPlugin {
     fn build(&self, app: &mut App) {
-        let mut params = self.tier.params();
-        if let Some(weapon) = self.weapon {
-            params.weapon = WeaponPolicy::Fixed(weapon);
-        }
-        app.insert_resource(Brain::new(params, self.seed))
+        app.insert_resource(Brain::new(self.params, self.seed))
             .add_systems(FixedUpdate, (perceive, act).chain().in_set(SimSet::Intent));
     }
 }
@@ -105,9 +106,9 @@ fn act(
     if brain.until_decision_secs <= 0.0 {
         brain.until_decision_secs += p.decision_secs;
         let hp = health.current() as f32 / health.max().max(1) as f32;
-        let wish = movement_wish(&p, own, seen, hp, bounds.half_extents());
-        hold_keys(&mut keys, eight_way(wish));
         let weapon = choose_weapon(p.weapon, own, &seen.enemies);
+        let wish = movement_wish(&p, weapon, own, seen, hp, bounds.half_extents());
+        hold_keys(&mut keys, eight_way(wish));
         if weapon != brain.weapon {
             brain.weapon = weapon;
             let key = weapon_key(weapon);
@@ -133,10 +134,27 @@ fn act(
     }
 }
 
-fn movement_wish(p: &TierParams, own: Vec2, seen: &Snapshot, hp: f32, half: Vec2) -> Vec2 {
-    let threat_distance =
-        nearest(own, seen.enemies.iter().copied()).map_or(f32::INFINITY, |t| t.distance(own));
-    let mut wish = dodge(own, &seen.enemies, p.dodge_radius, p.strafe);
+fn movement_wish(
+    p: &TierParams,
+    weapon: WeaponKind,
+    own: Vec2,
+    seen: &Snapshot,
+    hp: f32,
+    half: Vec2,
+) -> Vec2 {
+    let threat = nearest(own, seen.enemies.iter().copied());
+    let threat_distance = threat.map_or(f32::INFINITY, |t| t.distance(own));
+    // With melee a player has to let enemies in: dodge only what is nearly
+    // touching, and close the gap if everything is far away.
+    let (dodge_radius, engage) = if weapon == WeaponKind::Melee {
+        (p.dodge_radius.min(MELEE_DODGE_RADIUS), threat)
+    } else {
+        (p.dodge_radius, None)
+    };
+    let mut wish = dodge(own, &seen.enemies, dodge_radius, p.strafe);
+    if let Some(target) = engage.filter(|t| t.distance(own) > MELEE_STANDOFF) {
+        wish += (target - own).normalize_or_zero() * MELEE_PULL;
+    }
     if p.avoids_walls {
         wish += wall_push(own, half, WALL_MARGIN) * WALL_WEIGHT;
     }

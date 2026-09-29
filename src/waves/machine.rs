@@ -34,6 +34,10 @@ pub(super) struct WaveStats {
     pub(super) enemies_spawned: u32,
     pub(super) enemies_killed: u32,
     pub(super) damage_taken: u32,
+    pub(super) hits_taken: u32,
+    /// Player hp on the first tick in play, and the lowest since.
+    pub(super) start_hp: Option<u32>,
+    pub(super) lowest_hp: Option<u32>,
     pub(super) player_died: bool,
     pub(super) shots_fired: u32,
     /// Distinct shots that hit something; a melee swing hitting three counts once.
@@ -53,6 +57,8 @@ pub(super) struct WaveMachine {
     /// Latest director output; applied when the next wave starts.
     pub(super) next: Option<(Difficulty, WaveLevers)>,
     pub(super) player_max_hp: u32,
+    /// Latest known player hp, tracked in and out of play.
+    pub(super) player_hp: u32,
 }
 
 impl Default for WaveMachine {
@@ -66,6 +72,7 @@ impl Default for WaveMachine {
             stats: WaveStats::default(),
             next: None,
             player_max_hp: 0,
+            player_hp: 0,
         }
     }
 }

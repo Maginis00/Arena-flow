@@ -6,6 +6,7 @@ use super::bot::PlaytestBotPlugin;
 use super::tier::{SkillTier, WeaponPolicy};
 use crate::FlowArenaPlugins;
 use crate::flow_director::api::{DecisionReason, Difficulty, DifficultyAdjusted};
+use crate::telemetry::api::SessionFileEnabled;
 use crate::weapons::api::WeaponKind;
 use bevy::prelude::*;
 
@@ -20,6 +21,10 @@ pub struct WatchConfig {
 
 /// Open the game window with a bot at the controls; returns when it closes.
 pub fn watch(config: WatchConfig) -> AppExit {
+    let mut params = config.tier.params();
+    if let Some(weapon) = config.weapon {
+        params.weapon = WeaponPolicy::Fixed(weapon);
+    }
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
@@ -31,10 +36,10 @@ pub fn watch(config: WatchConfig) -> AppExit {
         }))
         .add_plugins(FlowArenaPlugins)
         .add_plugins(PlaytestBotPlugin {
-            tier: config.tier,
+            params,
             seed: config.seed,
-            weapon: config.weapon,
         })
+        .insert_resource(SessionFileEnabled(false))
         .add_plugins(WatchLabelPlugin(config))
         .run()
 }
