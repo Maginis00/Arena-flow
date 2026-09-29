@@ -3,7 +3,7 @@
 //! human's runs can sit in the same report as the bots. Headless apps (tests,
 //! bots) have no window and write nothing.
 
-use super::api::{SessionRecord, WaveRecord};
+use super::api::{SessionFileEnabled, SessionRecord, WaveRecord};
 use super::session_line::WaveLine;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
@@ -24,10 +24,11 @@ pub(super) struct SessionFile {
 
 pub(super) fn write_session_file(
     window: Query<(), With<PrimaryWindow>>,
+    enabled: Res<SessionFileEnabled>,
     session: Res<SessionRecord>,
     mut file: ResMut<SessionFile>,
 ) {
-    if file.failed || window.is_empty() {
+    if file.failed || !enabled.0 || window.is_empty() {
         return;
     }
     // A wave line goes out once the director's decision for it is known.

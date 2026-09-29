@@ -9,6 +9,17 @@ use crate::waves::api::WaveReport;
 use crate::weapons::api::WeaponKind;
 use bevy::prelude::*;
 
+/// Whether a windowed game writes its session file. True by default; the
+/// bot watch mode turns it off so a bot's run never reads as a human's.
+#[derive(Resource, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SessionFileEnabled(pub bool);
+
+impl Default for SessionFileEnabled {
+    fn default() -> Self {
+        Self(true)
+    }
+}
+
 /// Every weapon, in key order (1, 2, 3).
 pub const WEAPONS: [WeaponKind; 3] = [
     WeaponKind::Projectile,

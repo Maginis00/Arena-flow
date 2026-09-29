@@ -161,13 +161,20 @@ line of snapshots (reaction time). Pure parts are split out and unit-tested:
 `steering` (dodge, wall push, eight-way snapping), `choices` (pickup judgement,
 weapon choice), `perception` (delay line, deterministic rng) and `summary`.
 
+`playtest::watch` is the windowed counterpart of `play`: `DefaultPlugins`, all
+of `FlowArenaPlugins` (debug_render included), the same `PlaytestBotPlugin` at
+real-time speed, and a small bottom-left label (tier, weapon, next difficulty,
+last director reason) registered by its own `WatchLabelPlugin`. It sets `SessionFileEnabled(false)`, so watching a
+bot never writes a session file that would later read as your own.
+
 ## Session record (telemetry)
 
 Telemetry also builds a `telemetry::api::SessionRecord` in `Update`: one
 `WaveRecord` per finished wave with the `WaveReport`, the director's decision,
 a `WeaponTally` per weapon (time held, shots, hits, kills by killing blow,
 damage taken and deaths while held) and every `PickupTaken` (time into wave,
-hp, weapon). When a `PrimaryWindow` exists, `record_file` appends each wave as
+hp, weapon). When a `PrimaryWindow` exists and `SessionFileEnabled` is true (the
+default), `record_file` appends each wave as
 a JSON line to `playtests/session-<unix time>.jsonl`; headless apps write
 nothing. The playtest report reads the same record from bot runs and, with
 `--human`, from those files.
