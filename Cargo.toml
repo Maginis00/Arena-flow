@@ -1,0 +1,18 @@
+[package]
+name = "flow_arena"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+publish = false
+
+[dependencies]
+# Pinned exactly. 2D + UI (debug text) only: no 3D, no audio.
+bevy = { version = "=0.19.1", default-features = false, features = ["2d", "ui"] }
+thiserror = "2"
+
+# Keep our code fast to compile but make dependencies fast at runtime.
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
