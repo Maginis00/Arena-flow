@@ -50,6 +50,16 @@ impl WeaponTally {
         }
     }
 
+    /// Enemies killed per shot that landed: above 1 means one shot often
+    /// kills several (area damage), below 1 means targets need several hits.
+    pub fn kills_per_hit(&self) -> f32 {
+        if self.shots_hit == 0 {
+            0.0
+        } else {
+            self.kills as f32 / self.shots_hit as f32
+        }
+    }
+
     pub fn hit_rate(&self) -> f32 {
         if self.shots == 0 {
             0.0

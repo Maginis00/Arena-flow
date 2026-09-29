@@ -44,8 +44,8 @@ pub fn table(rows: &[Named]) -> String {
 /// One row per session and weapon actually held.
 pub fn weapon_table(rows: &[Named]) -> String {
     let mut out = String::from(
-        "| player | weapon | held | kills | kills/min | hit rate | dmg taken/min | deaths | deaths/10 min |\n\
-         |---|---|---|---|---|---|---|---|---|\n",
+        "| player | weapon | held | kills | kills/min | kills/hit | hit rate | dmg taken/min | deaths | deaths/10 min |\n\
+         |---|---|---|---|---|---|---|---|---|---|\n",
     );
     for (name, session) in rows {
         let totals = WEAPONS.map(|w| session.weapon_total(w));
@@ -56,7 +56,7 @@ pub fn weapon_table(rows: &[Named]) -> String {
             }
             let _ = writeln!(
                 out,
-                "| {name} | {weapon} | {:.0}% | {} | {:.1} | {:.0}% | {:.1} | {} | {:.1} |",
+                "| {name} | {weapon} | {:.0}% | {} | {:.1} | {:.2} | {:.0}% | {:.1} | {} | {:.1} |",
                 if all_secs > 0.0 {
                     t.secs_held / all_secs * 100.0
                 } else {
@@ -64,6 +64,7 @@ pub fn weapon_table(rows: &[Named]) -> String {
                 },
                 t.kills,
                 t.per_minute(t.kills),
+                t.kills_per_hit(),
                 t.hit_rate() * 100.0,
                 t.per_minute(t.damage_taken),
                 t.deaths,
