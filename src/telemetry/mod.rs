@@ -1,12 +1,15 @@
 //! Rolling window of recent wave reports plus a debug text overlay.
 //! Runs in `Update`: it only observes facts, it never drives simulation.
+//! The overlay (which shows the difficulty number) exists only in debug builds.
 
 pub mod api;
 
-use crate::combat::api::{EnemyKilled, PlayerDamaged};
+use crate::combat::api::{EnemyKilled, PlayerDamaged, PlayerHealed};
 use crate::flow_director::api::{DecisionReason, Difficulty, DifficultyAdjusted};
+use crate::pickups::api::{Effects, EffectsChanged, PickupCollected, PickupKind};
 use crate::player::api::PlayerSpawned;
-use crate::waves::api::{WaveIndex, WaveReport, WaveStarted};
+use crate::waves::api::{WaveReport, WaveSpec, WaveStarted};
+use crate::weapons::api::{WeaponKind, WeaponSwitched};
 use bevy::prelude::*;
 use std::collections::VecDeque;
 use std::fmt::Write as _;
@@ -19,23 +22,28 @@ pub struct TelemetryPlugin;
 impl Plugin for TelemetryPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Telemetry>()
-            .add_systems(Startup, spawn_overlay)
-            .add_systems(Update, (collect, render_overlay).chain());
+            .add_systems(Update, collect);
+        if cfg!(debug_assertions) {
+            app.add_systems(Startup, spawn_overlay)
+                .add_systems(Update, render_overlay.after(collect));
+        }
     }
 }
 
 #[derive(Resource, Debug, Default)]
 struct Telemetry {
-    wave: Option<WaveIndex>,
+    wave: Option<WaveSpec>,
     wave_started_at: f32,
     /// `Some` once the current wave ended; freezes the timer.
     wave_duration: Option<f32>,
-    difficulty: Option<Difficulty>,
     next_difficulty: Option<Difficulty>,
     last_reason: Option<DecisionReason>,
     hp: u32,
     max_hp: u32,
     kills: u32,
+    weapon: WeaponKind,
+    effects: Effects,
+    last_pickup: Option<PickupKind>,
     recent: VecDeque<WaveReport>,
 }
 
@@ -64,7 +72,11 @@ fn collect(
     mut adjusted: MessageReader<DifficultyAdjusted>,
     mut spawned: MessageReader<PlayerSpawned>,
     mut damaged: MessageReader<PlayerDamaged>,
+    mut healed: MessageReader<PlayerHealed>,
     mut killed: MessageReader<EnemyKilled>,
+    mut switched: MessageReader<WeaponSwitched>,
+    mut effects: MessageReader<EffectsChanged>,
+    mut pickups: MessageReader<PickupCollected>,
 ) {
     let t = &mut *telemetry;
     for s in spawned.read() {
@@ -75,9 +87,12 @@ fn collect(
         t.hp = d.remaining;
         t.max_hp = d.max;
     }
+    for h in healed.read() {
+        t.hp = h.remaining;
+        t.max_hp = h.max;
+    }
     for s in started.read() {
-        t.wave = Some(s.spec.index);
-        t.difficulty = Some(s.spec.difficulty);
+        t.wave = Some(s.spec);
         t.wave_started_at = time.elapsed_secs();
         t.wave_duration = None;
         t.kills = 0;
@@ -96,6 +111,15 @@ fn collect(
         t.next_difficulty = Some(a.difficulty);
         t.last_reason = Some(a.reason);
     }
+    if let Some(w) = switched.read().last() {
+        t.weapon = w.weapon;
+    }
+    if let Some(e) = effects.read().last() {
+        t.effects = e.effects;
+    }
+    if let Some(p) = pickups.read().last() {
+        t.last_pickup = Some(p.kind);
+    }
 }
 
 fn render_overlay(
@@ -107,15 +131,17 @@ fn render_overlay(
     let elapsed = t
         .wave_duration
         .unwrap_or_else(|| (time.elapsed_secs() - t.wave_started_at).max(0.0));
+    let e = t.effects;
     for mut text in &mut text {
         let s = &mut text.0;
         s.clear();
         // Writing to a String cannot fail; ignore the fmt::Result.
         let _ = writeln!(
             s,
-            "wave {}  difficulty {}  next {}",
-            opt(t.wave),
-            opt(t.difficulty),
+            "wave {} (try {})  difficulty {}  next {}",
+            opt(t.wave.map(|w| w.index)),
+            opt(t.wave.map(|w| w.attempt)),
+            opt(t.wave.map(|w| w.difficulty)),
             opt(t.next_difficulty),
         );
         let _ = writeln!(
@@ -123,9 +149,26 @@ fn render_overlay(
             "hp {}/{}  kills {}  time {elapsed:.1}s",
             t.hp, t.max_hp, t.kills
         );
+        let _ = writeln!(
+            s,
+            "weapon {} [1 2 3]  last pickup {}",
+            t.weapon,
+            opt(t.last_pickup)
+        );
+        if e != Effects::NEUTRAL {
+            let _ = writeln!(
+                s,
+                "effects: move x{:.2} fire x{:.2} dmg x{:.2} taken x{:.2}{}",
+                e.move_speed,
+                e.fire_rate,
+                e.outgoing_damage,
+                e.incoming_damage,
+                if e.weapons_locked { " LOCKED" } else { "" },
+            );
+        }
         let _ = writeln!(s, "last decision: {}", opt(t.last_reason));
         if !t.recent.is_empty() {
-            let _ = writeln!(s, "recent waves (idx diff secs kills dmg died acc):");
+            let _ = writeln!(s, "recent (wave.try diff secs kills dmg died acc pickups):");
         }
         for r in t.recent.iter().rev() {
             let accuracy = if r.shots_fired == 0 {
@@ -135,14 +178,16 @@ fn render_overlay(
             };
             let _ = writeln!(
                 s,
-                "  #{} d{} {:.1}s {}/{} {} {} {accuracy:.0}%",
+                "  #{}.{} d{} {:.1}s {}/{} {} {} {accuracy:.0}% {}",
                 r.index,
+                r.attempt,
                 r.difficulty,
                 r.duration_secs,
                 r.enemies_killed,
                 r.enemies_spawned,
                 r.damage_taken,
                 if r.player_died { "yes" } else { "no" },
+                r.pickups_collected,
             );
         }
     }

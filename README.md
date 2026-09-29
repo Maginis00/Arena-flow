@@ -11,8 +11,9 @@ This is a test harness, not a game.
 Requires stable Rust 1.95 or newer (bevy 0.19.1's minimum).
 
 ```sh
-cargo run            # play
-cargo test           # decide() unit tests + a headless multi-wave run
+cargo run            # play (debug build: shows the telemetry overlay)
+cargo run --release  # play without the overlay
+cargo test           # unit tests + headless multi-wave runs (idle and aim-bot)
 ```
 
 On Linux, Bevy needs the usual system packages (for example on Debian or
@@ -23,16 +24,44 @@ Ubuntu: `libudev-dev libwayland-dev libxkbcommon-dev`, plus X11 dev headers).
 - `W` `A` `S` `D`: move
 - Mouse: aim
 - Hold left mouse button: fire
+- `1` `2` `3`: projectile, hitscan, melee arc
+
+## Weapons (all numbers placeholder)
+
+| Key | Weapon | Cooldown | Damage | Reach |
+|---|---|---|---|---|
+| 1 | Projectile | 0.18 s | 1 | travels at 720/s |
+| 2 | Hitscan | 0.35 s | 2 | first enemy on a 520 ray |
+| 3 | Melee arc | 0.45 s | 3 | every enemy in a 120° arc, radius 75 |
+
+Enemies have 3 hp.
+
+## Pickups (all numbers placeholder)
+
+Every 5th kill drops a pickup where the enemy died. It lasts 8 s on the floor.
+Every pickup has a cost:
+
+| Shade of green | Pickup | Upside | Downside | Duration |
+|---|---|---|---|---|
+| Bright | Overdrive | fire rate x1.6 | take x1.5 damage | 8 s |
+| Dark | Heavy | damage x2 | move speed x0.7 | 8 s |
+| Pale | Mend | heal 30 hp | weapon locked | 2.5 s |
+
+Different pickups stack. Taking the same pickup again resets its timer instead
+of stacking. Dying clears all effects.
 
 ## What you see
 
-- Cyan box: player. Red boxes: enemies. Yellow boxes: projectiles.
-  Dark gray border: arena bounds.
-- Top-left debug overlay: wave index, difficulty (current and next), hp, kills,
-  wave time, the director's last decision reason, and the last 5 wave reports.
+- Cyan box: player. Red boxes: enemies. Yellow: projectiles, hitscan tracers,
+  melee swings. Green: pickups. Dark gray border: arena bounds.
+- The camera follows the player lightly and stops at the arena edge.
+- Debug builds only: the top-left overlay shows wave and attempt, difficulty
+  (current and next), hp, kills, wave time, weapon, active effects, the
+  director's last decision reason, and the last 5 wave reports.
 
-Waves are endless. Dying fails the wave; the player respawns at centre when
-the next wave starts after the intermission.
+Waves are endless. Dying fails the wave. After the intermission the player
+respawns at the centre and the same wave is retried, at whatever difficulty the
+director chose.
 
 ## How difficulty moves
 
@@ -51,9 +80,8 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for plugins, messages and schedule order.
 
 ## Intentionally not built
 
-- Any weapon beyond the placeholder projectile (weapon fantasy is undecided)
-- Pickups (the green box color is reserved, but there is no pickup design yet)
-- Camera follow, game over screen, run restart, menus beyond the debug overlay
+- Game over screen, run restart, menus beyond the debug overlay
+- A release-build HUD (hp, active effects): nothing is shown without the overlay
 - Assets, sprites, animation, sound, fonts beyond Bevy's default
 - Upgrades, shops, bosses, procedural rooms, networking, save games
 - Balance: every number is a placeholder

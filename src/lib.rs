@@ -10,10 +10,12 @@
 
 pub mod app_setup;
 pub mod arena;
+pub mod camera;
 pub mod combat;
 pub mod debug_render;
 pub mod enemies;
 pub mod flow_director;
+pub mod pickups;
 pub mod player;
 pub mod telemetry;
 pub mod waves;
@@ -30,10 +32,12 @@ impl PluginGroup for FlowArenaPlugins {
         PluginGroupBuilder::start::<Self>()
             .add(app_setup::AppSetupPlugin)
             .add(arena::ArenaPlugin)
+            .add(camera::CameraPlugin)
             .add(player::PlayerPlugin)
             .add(combat::CombatPlugin)
             .add(weapons::WeaponsPlugin)
             .add(enemies::EnemiesPlugin)
+            .add(pickups::PickupsPlugin)
             .add(waves::WavesPlugin)
             .add(flow_director::FlowDirectorPlugin)
             .add(telemetry::TelemetryPlugin)

@@ -136,6 +136,7 @@ mod tests {
     fn report(duration_secs: f32, damage_taken: u32, player_died: bool) -> WaveReport {
         WaveReport {
             index: WaveIndex(1),
+            attempt: 1,
             difficulty: difficulty(5),
             duration_secs,
             enemies_spawned: 10,
@@ -145,6 +146,7 @@ mod tests {
             player_died,
             shots_fired: 40,
             shots_hit: 30,
+            pickups_collected: 0,
         }
     }
 

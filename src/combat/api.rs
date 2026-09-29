@@ -37,6 +37,13 @@ impl Health {
         self.current -= applied;
         applied
     }
+
+    /// Returns the hp actually restored (never above max).
+    pub(super) fn restore(&mut self, amount: u32) -> u32 {
+        let applied = amount.min(self.max - self.current);
+        self.current += applied;
+        applied
+    }
 }
 
 /// Axis-aligned collision box, centred on the entity's translation.
@@ -58,23 +65,65 @@ impl Hitbox {
             .cmple(self.half_extents + other.half_extents)
             .all()
     }
+
+    /// Distance along a ray from `origin` in unit `direction` to this box at
+    /// `at`, if the ray enters it within `max_distance`. Slab test.
+    pub fn ray_distance(
+        self,
+        at: Vec2,
+        origin: Vec2,
+        direction: Vec2,
+        max_distance: f32,
+    ) -> Option<f32> {
+        let min = at - self.half_extents;
+        let max = at + self.half_extents;
+        let mut t_near = 0.0_f32;
+        let mut t_far = max_distance;
+        for axis in 0..2 {
+            let (o, d, lo, hi) = (origin[axis], direction[axis], min[axis], max[axis]);
+            if d.abs() < f32::EPSILON {
+                if o < lo || o > hi {
+                    return None;
+                }
+                continue;
+            }
+            let (t1, t2) = ((lo - o) / d, (hi - o) / d);
+            t_near = t_near.max(t1.min(t2));
+            t_far = t_far.min(t1.max(t2));
+            if t_near > t_far {
+                return None;
+            }
+        }
+        Some(t_near)
+    }
 }
+
+/// Identifies one trigger pull of a weapon. A melee swing that strikes three
+/// enemies is still one shot, so accuracy counts shots, not hits.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub struct ShotId(pub u32);
 
 /// A damaging projectile. Despawned by combat after its first hit.
 #[derive(Component, Debug, Clone, Copy)]
 pub struct Projectile {
     pub damage: u32,
     pub team: Team,
+    pub shot: ShotId,
 }
 
 /// What dealt a [`Hit`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HitSource {
-    Projectile(Entity),
+    /// A weapon shot. `projectile` is set when a projectile entity delivered it.
+    Shot {
+        shot: ShotId,
+        projectile: Option<Entity>,
+    },
+    /// An enemy touching the player.
     Contact(Entity),
 }
 
-/// A confirmed overlap that should deal damage. Written by combat (projectiles)
+/// A confirmed hit that should deal damage. Written by combat (weapon shots)
 /// and enemies (contact); applied by combat.
 #[derive(Message, Debug, Clone, Copy)]
 pub struct Hit {
@@ -101,4 +150,44 @@ pub struct PlayerDied {
 #[derive(Message, Debug, Clone, Copy)]
 pub struct EnemyKilled {
     pub enemy: Entity,
+    pub at: Vec2,
+}
+
+/// Restore hp to `target`, capped at max. Written by pickups; applied by combat.
+#[derive(Message, Debug, Clone, Copy)]
+pub struct HealGranted {
+    pub target: Entity,
+    pub amount: u32,
+}
+
+/// The player regained health.
+#[derive(Message, Debug, Clone, Copy)]
+pub struct PlayerHealed {
+    pub amount: u32,
+    pub remaining: u32,
+    pub max: u32,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ray_hits_box_ahead_and_misses_box_behind_or_beside() {
+        let hitbox = Hitbox::square(10.0);
+        let ahead = hitbox.ray_distance(Vec2::new(100.0, 0.0), Vec2::ZERO, Vec2::X, 500.0);
+        assert_eq!(ahead, Some(90.0));
+        assert_eq!(
+            hitbox.ray_distance(Vec2::new(-100.0, 0.0), Vec2::ZERO, Vec2::X, 500.0),
+            None
+        );
+        assert_eq!(
+            hitbox.ray_distance(Vec2::new(100.0, 50.0), Vec2::ZERO, Vec2::X, 500.0),
+            None
+        );
+        assert_eq!(
+            hitbox.ray_distance(Vec2::new(600.0, 0.0), Vec2::ZERO, Vec2::X, 500.0),
+            None
+        );
+    }
 }

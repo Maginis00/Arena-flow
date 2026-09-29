@@ -7,6 +7,9 @@ use api::{FIXED_HZ, SimSet};
 use bevy::prelude::*;
 
 const CLEAR_COLOR: Color = Color::srgb(0.06, 0.06, 0.08);
+/// PLACEHOLDER: world units visible vertically. The arena is 660 tall, so the
+/// view is slightly tighter than the arena and the camera follows lightly.
+const VIEW_HEIGHT: f32 = 580.0;
 
 pub struct AppSetupPlugin;
 
@@ -33,6 +36,14 @@ impl Plugin for AppSetupPlugin {
 }
 
 fn spawn_camera(mut commands: Commands) {
-    // Fixed orthographic camera centred on the arena origin.
-    commands.spawn(Camera2d);
+    // Orthographic camera; the camera plugin moves it with a light follow.
+    commands.spawn((
+        Camera2d,
+        Projection::Orthographic(OrthographicProjection {
+            scaling_mode: bevy::camera::ScalingMode::FixedVertical {
+                viewport_height: VIEW_HEIGHT,
+            },
+            ..OrthographicProjection::default_2d()
+        }),
+    ));
 }

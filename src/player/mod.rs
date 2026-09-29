@@ -8,6 +8,7 @@ pub mod api;
 use crate::app_setup::api::SimSet;
 use crate::arena::api::ArenaBounds;
 use crate::combat::api::{Health, Hitbox, PlayerDied, Team};
+use crate::pickups::api::{Effects, EffectsChanged};
 use crate::waves::api::WaveStarted;
 use api::{FireRequested, Player, PlayerSpawned};
 use bevy::prelude::*;
@@ -27,9 +28,13 @@ impl Plugin for PlayerPlugin {
         app.add_message::<PlayerSpawned>()
             .add_message::<FireRequested>()
             .init_resource::<PlayerInput>()
+            .init_resource::<MovementEffects>()
             .add_systems(Startup, spawn_player)
             .add_systems(Update, sample_input)
-            .add_systems(FixedUpdate, request_fire.in_set(SimSet::Intent))
+            .add_systems(
+                FixedUpdate,
+                (track_effects, request_fire).in_set(SimSet::Intent),
+            )
             .add_systems(FixedUpdate, move_player.in_set(SimSet::Movement))
             .add_systems(
                 FixedUpdate,
@@ -48,6 +53,16 @@ struct PlayerInput {
     /// Cursor position in world space, if the cursor is over the window.
     aim_world: Option<Vec2>,
     fire_held: bool,
+}
+
+/// Latest pickup effects; the player only uses `move_speed`.
+#[derive(Resource, Debug, Default, Clone, Copy)]
+struct MovementEffects(Effects);
+
+fn track_effects(mut changed: MessageReader<EffectsChanged>, mut effects: ResMut<MovementEffects>) {
+    if let Some(latest) = changed.read().last() {
+        effects.0 = latest.effects;
+    }
 }
 
 fn player_bundle() -> impl Bundle {
@@ -99,12 +114,13 @@ fn sample_input(
 fn move_player(
     time: Res<Time>,
     input: Res<PlayerInput>,
+    effects: Res<MovementEffects>,
     bounds: Res<ArenaBounds>,
     mut player: Query<(&mut Transform, &Hitbox), With<Player>>,
 ) {
     for (mut transform, hitbox) in &mut player {
-        let next =
-            transform.translation.truncate() + input.movement * PLAYER_SPEED * time.delta_secs();
+        let next = transform.translation.truncate()
+            + input.movement * PLAYER_SPEED * effects.0.move_speed * time.delta_secs();
         let clamped = bounds.clamp(next, hitbox.half_extents);
         transform.translation = clamped.extend(transform.translation.z);
     }

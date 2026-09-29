@@ -1,5 +1,8 @@
 //! Wave state machine: Idle -> Spawning -> Active -> Cleared -> Intermission -> Spawning ...
 //!
+//! A failed wave (player died) is retried: the next wave keeps the same index
+//! with `attempt + 1`, at whatever difficulty the director picked.
+//!
 //! Runs entirely in `FixedUpdate` as a plain resource rather than Bevy `States`,
 //! so transitions happen on simulation ticks instead of at frame boundaries.
 //! `Cleared` covers both outcomes: the wave has left play, cleared or failed.
@@ -7,12 +10,14 @@
 pub mod api;
 
 use crate::app_setup::api::SimSet;
-use crate::combat::api::{EnemyKilled, Hit, HitSource, PlayerDamaged, PlayerDied};
+use crate::combat::api::{EnemyKilled, Hit, HitSource, PlayerDamaged, PlayerDied, ShotId};
 use crate::enemies::api::EnemySpawned;
 use crate::flow_director::api::{Difficulty, DifficultyAdjusted, WaveLevers};
+use crate::pickups::api::PickupCollected;
 use crate::player::api::PlayerSpawned;
 use crate::weapons::api::ShotFired;
 use api::{WaveCleared, WaveFailed, WaveIndex, WaveReport, WaveSpec, WaveStarted};
+use bevy::platform::collections::HashSet;
 use bevy::prelude::*;
 
 /// PLACEHOLDER: seconds between the end of a wave and the start of the next.
@@ -56,7 +61,7 @@ enum WavePhase {
 }
 
 /// Facts counted while a wave is in play.
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Default)]
 struct WaveStats {
     duration_secs: f32,
     enemies_spawned: u32,
@@ -64,7 +69,9 @@ struct WaveStats {
     damage_taken: u32,
     player_died: bool,
     shots_fired: u32,
-    shots_hit: u32,
+    /// Distinct shots that hit something; a melee swing hitting three counts once.
+    shots_hit: HashSet<ShotId>,
+    pickups_collected: u32,
 }
 
 #[derive(Resource, Debug)]
@@ -72,6 +79,9 @@ struct WaveMachine {
     phase: WavePhase,
     current: Option<WaveSpec>,
     last_index: WaveIndex,
+    last_attempt: u32,
+    /// The previous wave failed, so the next one repeats its index.
+    retry: bool,
     stats: WaveStats,
     /// Latest director output; applied when the next wave starts.
     next: Option<(Difficulty, WaveLevers)>,
@@ -84,6 +94,8 @@ impl Default for WaveMachine {
             phase: WavePhase::Idle,
             current: None,
             last_index: WaveIndex(0),
+            last_attempt: 0,
+            retry: false,
             stats: WaveStats::default(),
             next: None,
             player_max_hp: 0,
@@ -121,28 +133,33 @@ fn measure(
     mut player_died: MessageReader<PlayerDied>,
     mut shots: MessageReader<ShotFired>,
     mut hits: MessageReader<Hit>,
+    mut pickups: MessageReader<PickupCollected>,
 ) {
     let spawned = count(enemy_spawned.read().count());
     let killed = count(enemy_killed.read().count());
     let damage: u32 = player_damaged.read().map(|d| d.amount).sum();
     let died = player_died.read().count() > 0;
     let fired = count(shots.read().count());
-    let landed = count(
-        hits.read()
-            .filter(|hit| matches!(hit.source, HitSource::Projectile(_)))
-            .count(),
-    );
+    let collected = count(pickups.read().count());
+    let landed: Vec<ShotId> = hits
+        .read()
+        .filter_map(|hit| match hit.source {
+            HitSource::Shot { shot, .. } => Some(shot),
+            HitSource::Contact(_) => None,
+        })
+        .collect();
     if !machine.in_play() {
         return;
     }
     let stats = &mut machine.stats;
+    stats.shots_hit.extend(landed);
     stats.duration_secs += time.delta_secs();
     stats.enemies_spawned = stats.enemies_spawned.saturating_add(spawned);
     stats.enemies_killed = stats.enemies_killed.saturating_add(killed);
     stats.damage_taken = stats.damage_taken.saturating_add(damage);
     stats.player_died |= died;
     stats.shots_fired = stats.shots_fired.saturating_add(fired);
-    stats.shots_hit = stats.shots_hit.saturating_add(landed);
+    stats.pickups_collected = stats.pickups_collected.saturating_add(collected);
 }
 
 fn count(n: usize) -> u32 {
@@ -169,7 +186,7 @@ fn advance(
                 machine.phase = WavePhase::Idle;
                 return;
             };
-            let stats = machine.stats;
+            let stats = &machine.stats;
             machine.phase = if stats.player_died {
                 WavePhase::Cleared(Outcome::Failed)
             } else if stats.enemies_spawned < spec.enemy_count {
@@ -190,9 +207,11 @@ fn advance(
                         failed.write(WaveFailed { index: spec.index });
                     }
                 }
-                let s = machine.stats;
+                machine.retry = outcome == Outcome::Failed;
+                let s = &machine.stats;
                 reports.write(WaveReport {
                     index: spec.index,
+                    attempt: spec.attempt,
                     difficulty: spec.difficulty,
                     duration_secs: s.duration_secs,
                     enemies_spawned: s.enemies_spawned,
@@ -201,7 +220,8 @@ fn advance(
                     player_max_hp: machine.player_max_hp,
                     player_died: s.player_died,
                     shots_fired: s.shots_fired,
-                    shots_hit: s.shots_hit,
+                    shots_hit: count(s.shots_hit.len()),
+                    pickups_collected: s.pickups_collected,
                 });
             }
             machine.phase = WavePhase::Intermission {
@@ -224,14 +244,22 @@ fn start_next_wave(machine: &mut WaveMachine, started: &mut MessageWriter<WaveSt
         machine.phase = WavePhase::Idle;
         return;
     };
+    let (index, attempt) = if machine.retry {
+        (machine.last_index, machine.last_attempt.saturating_add(1))
+    } else {
+        (machine.last_index.next(), 1)
+    };
     let spec = WaveSpec {
-        index: machine.last_index.next(),
+        index,
+        attempt,
         difficulty,
         enemy_count: levers.enemy_count,
         enemy_speed: levers.enemy_speed,
         contact_damage: levers.contact_damage,
     };
-    machine.last_index = spec.index;
+    machine.last_index = index;
+    machine.last_attempt = attempt;
+    machine.retry = false;
     machine.current = Some(spec);
     machine.stats = WaveStats::default();
     machine.phase = WavePhase::Spawning;

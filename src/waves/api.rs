@@ -22,6 +22,8 @@ impl fmt::Display for WaveIndex {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct WaveSpec {
     pub index: WaveIndex,
+    /// 1 on the first try; a failed wave is retried with the same index.
+    pub attempt: u32,
     pub difficulty: Difficulty,
     pub enemy_count: u32,
     pub enemy_speed: f32,
@@ -51,6 +53,7 @@ pub struct WaveFailed {
 #[derive(Message, Debug, Clone, Copy, PartialEq)]
 pub struct WaveReport {
     pub index: WaveIndex,
+    pub attempt: u32,
     pub difficulty: Difficulty,
     pub duration_secs: f32,
     pub enemies_spawned: u32,
@@ -59,7 +62,9 @@ pub struct WaveReport {
     pub player_max_hp: u32,
     pub player_died: bool,
     pub shots_fired: u32,
+    /// Shots that hit at least one enemy.
     pub shots_hit: u32,
+    pub pickups_collected: u32,
 }
 
 impl WaveReport {
