@@ -4,6 +4,43 @@ Single crate, one module per domain. Each domain module has a `Plugin` and an
 `api` submodule. Other domains may use only `<domain>::api` items (and the
 plugin type). Everything else is private to the domain.
 
+## Code layout
+
+Modules use the edition-2018+ style: `src/combat.rs` is the root of the
+`combat` module and `src/combat/` holds its submodules, so no file is called
+`mod.rs`. The root file holds the module docs, the `Plugin` with all of the
+domain's system registration, and the systems themselves while the domain is
+small. `api.rs` is the public surface; further files are named for what they
+hold.
+
+```
+src/
+  lib.rs            FlowArenaPlugins
+  main.rs           window + plugins only
+  app_setup.rs      app_setup/api.rs        SimSet, fixed timestep, 2D camera
+  arena.rs          arena/api.rs            ArenaBounds, out-of-bounds despawn
+  camera.rs         camera/api.rs           light follow (exposes nothing)
+  player.rs         player/api.rs           spawn, input, movement, fire intent
+  weapons.rs        weapons/api.rs          selection, cooldowns, shots
+  combat.rs         combat/api.rs           hit detection and resolution
+  enemies.rs        enemies/api.rs          spawning, chasing, contact damage
+  pickups.rs        pickups/api.rs          drops, collection, effect timers
+                    pickups/table.rs        what each pickup does (pure + tests)
+  waves.rs          waves/api.rs            the plugin and its system order
+                    waves/machine.rs        phase, wave in play, running stats
+                    waves/measure.rs        counting facts during a wave
+                    waves/transitions.rs    phase changes, reports, next wave
+  flow_director.rs  flow_director/api.rs    the ECS side: state and two systems
+                    flow_director/decide.rs the pure decision (+ tests)
+  telemetry.rs      telemetry/api.rs        snapshot + debug overlay
+  debug_render.rs   debug_render/api.rs     boxes, border, shot flashes
+```
+
+Items shared between a domain's root and its submodules are `pub(super)`;
+only `api` is `pub`. Unit tests live in `#[cfg(test)] mod tests` at the bottom
+of the file they test, and don't count toward a file's length. A file splits
+when its non-test code passes roughly 200 lines, by what the code does.
+
 ## Plugin graph
 
 Arrows mean "uses the public api of". No domain touches another's private items.
