@@ -160,3 +160,14 @@ and writes `FireRequested` as the mouse would. It sees the world through a delay
 line of snapshots (reaction time). Pure parts are split out and unit-tested:
 `steering` (dodge, wall push, eight-way snapping), `choices` (pickup judgement,
 weapon choice), `perception` (delay line, deterministic rng) and `summary`.
+
+## Session record (telemetry)
+
+Telemetry also builds a `telemetry::api::SessionRecord` in `Update`: one
+`WaveRecord` per finished wave with the `WaveReport`, the director's decision,
+a `WeaponTally` per weapon (time held, shots, hits, kills by killing blow,
+damage taken and deaths while held) and every `PickupTaken` (time into wave,
+hp, weapon). When a `PrimaryWindow` exists, `record_file` appends each wave as
+a JSON line to `playtests/session-<unix time>.jsonl`; headless apps write
+nothing. The playtest report reads the same record from bot runs and, with
+`--human`, from those files.
