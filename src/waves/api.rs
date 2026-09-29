@@ -59,7 +59,13 @@ pub struct WaveReport {
     pub enemies_spawned: u32,
     pub enemies_killed: u32,
     pub damage_taken: u32,
+    /// Contact hits the player took.
+    pub hits_taken: u32,
     pub player_max_hp: u32,
+    /// Player hp when the wave came into play (hp carries over between waves).
+    pub start_hp: u32,
+    /// Lowest player hp while the wave was in play; 0 if the player died.
+    pub lowest_hp: u32,
     pub player_died: bool,
     pub shots_fired: u32,
     /// Shots that hit at least one enemy.
@@ -78,5 +84,14 @@ impl WaveReport {
             return 0.0;
         }
         (self.damage_taken as f32 / self.player_max_hp as f32).clamp(0.0, 1.0)
+    }
+
+    /// Lowest hp in the wave as a fraction of max hp, in `[0, 1]`: how close
+    /// the player came to dying. One if max hp is unknown.
+    pub fn lowest_hp_fraction(&self) -> f32 {
+        if self.player_max_hp == 0 {
+            return 1.0;
+        }
+        (self.lowest_hp as f32 / self.player_max_hp as f32).clamp(0.0, 1.0)
     }
 }

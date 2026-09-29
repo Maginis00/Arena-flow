@@ -2,7 +2,9 @@
 //! director output for the wave after it.
 
 use super::machine::{WaveMachine, count};
-use crate::combat::api::{EnemyKilled, Hit, HitSource, PlayerDamaged, PlayerDied, ShotId};
+use crate::combat::api::{
+    EnemyKilled, Hit, HitSource, PlayerDamaged, PlayerDied, PlayerHealed, ShotId,
+};
 use crate::enemies::api::EnemySpawned;
 use crate::flow_director::api::DifficultyAdjusted;
 use crate::pickups::api::PickupCollected;
@@ -21,6 +23,37 @@ pub(super) fn record_director(
     if let Some(latest) = spawned.read().last() {
         machine.player_max_hp = latest.max_hp;
     }
+}
+
+/// Follow the player's hp in and out of play, and while a wave is in play
+/// remember the hp it started at and the lowest it reached.
+pub(super) fn track_hp(
+    mut spawned: MessageReader<PlayerSpawned>,
+    mut damaged: MessageReader<PlayerDamaged>,
+    mut healed: MessageReader<PlayerHealed>,
+    mut machine: ResMut<WaveMachine>,
+) {
+    if let Some(latest) = spawned.read().last() {
+        machine.player_hp = latest.max_hp;
+    }
+    let before_damage = machine.player_hp;
+    let mut lowest = before_damage;
+    let mut hits = 0;
+    for damage in damaged.read() {
+        hits += 1;
+        lowest = lowest.min(damage.remaining);
+        machine.player_hp = damage.remaining;
+    }
+    if let Some(latest) = healed.read().last() {
+        machine.player_hp = latest.remaining;
+    }
+    if !machine.in_play() {
+        return;
+    }
+    let stats = &mut machine.stats;
+    stats.hits_taken = stats.hits_taken.saturating_add(hits);
+    let start = *stats.start_hp.get_or_insert(before_damage);
+    stats.lowest_hp = Some(stats.lowest_hp.unwrap_or(start).min(lowest));
 }
 
 /// Count facts for the wave in play. Facts arriving outside play are dropped.

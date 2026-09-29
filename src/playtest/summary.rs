@@ -2,6 +2,7 @@
 //! tier in its own band. Pure; unit-tested.
 
 use crate::flow_director::api::DecisionReason;
+use crate::flow_director::{DirectorConfig, wave_risk};
 use crate::telemetry::api::SessionRecord;
 use crate::waves::api::WaveReport;
 use std::fmt::Write as _;
@@ -17,9 +18,13 @@ pub struct Summary {
     /// Mean difficulty over the second half of waves: where the director settled.
     pub settled: f32,
     /// Lowest and highest difficulty over the second half.
-    pub settled_range: (u8, u8),
+    pub settled_range: (f32, f32),
     /// Share of post-wave decisions that held because the wave read in band.
     pub in_band: f32,
+    /// Share of waves whose own risk fell inside the director's band.
+    pub risk_in_band: f32,
+    /// Median risk per wave (share of the starting hp lost, 1 on death).
+    pub median_risk: f32,
     /// Shots that hit something, over shots fired.
     pub hit_rate: f32,
     /// Mean seconds per enemy on cleared waves.
@@ -35,21 +40,17 @@ impl Summary {
         let reports: Vec<&WaveReport> = session.waves.iter().map(|w| &w.report).collect();
         let cleared: Vec<_> = reports.iter().filter(|r| r.cleared()).collect();
         let second_half = &reports[reports.len() / 2..];
-        let levels: Vec<u8> = second_half.iter().map(|r| r.difficulty.get()).collect();
+        let levels: Vec<f32> = second_half.iter().map(|r| r.difficulty.level()).collect();
+        let band = DirectorConfig::default();
+        let mut risks: Vec<f32> = reports.iter().map(|r| wave_risk(r)).collect();
+        risks.sort_by(f32::total_cmp);
         let fired: u32 = reports.iter().map(|r| r.shots_fired).sum();
         let hit: u32 = reports.iter().map(|r| r.shots_hit).sum();
         let decisions: Vec<DecisionReason> =
             session.waves.iter().filter_map(|w| w.decision).collect();
         let held = decisions
             .iter()
-            .filter(|d| {
-                matches!(
-                    d,
-                    DecisionReason::HeldInBand
-                        | DecisionReason::HeldLowHp
-                        | DecisionReason::HeldSlowClear
-                )
-            })
+            .filter(|d| **d == DecisionReason::HeldInBand)
             .count();
         let mut trajectory = String::new();
         for r in &reports {
@@ -66,12 +67,17 @@ impl Summary {
             clears: cleared.len(),
             deaths: reports.iter().filter(|r| r.player_died).count(),
             furthest_wave: reports.iter().map(|r| r.index.0).max().unwrap_or(0),
-            settled: mean(levels.iter().map(|l| f32::from(*l))),
+            settled: mean(levels.iter().copied()),
             settled_range: (
-                levels.iter().copied().min().unwrap_or(0),
-                levels.iter().copied().max().unwrap_or(0),
+                levels.iter().copied().reduce(f32::min).unwrap_or(0.0),
+                levels.iter().copied().reduce(f32::max).unwrap_or(0.0),
             ),
             in_band: ratio(held, decisions.len()),
+            risk_in_band: ratio(
+                risks.iter().filter(|r| band.in_band(**r)).count(),
+                risks.len(),
+            ),
+            median_risk: risks.get(risks.len() / 2).copied().unwrap_or(0.0),
             hit_rate: ratio(hit as usize, fired as usize),
             secs_per_enemy: mean(
                 cleared
@@ -113,7 +119,10 @@ mod tests {
             enemies_spawned: 5,
             enemies_killed: if died { 2 } else { 5 },
             damage_taken: 20,
+            hits_taken: 2,
             player_max_hp: 100,
+            start_hp: 100,
+            lowest_hp: if died { 0 } else { 80 },
             player_died: died,
             shots_fired: 10,
             shots_hit: 5,
@@ -140,10 +149,11 @@ mod tests {
         let s = Summary::of(&log);
         assert_eq!((s.waves, s.clears, s.deaths, s.furthest_wave), (4, 3, 1, 3));
         assert_eq!(s.settled, 5.0);
-        assert_eq!(s.settled_range, (5, 5));
+        assert_eq!(s.settled_range, (5.0, 5.0));
+        assert_eq!(s.median_risk, 0.2);
         assert_eq!(s.hit_rate, 0.5);
         assert_eq!(s.secs_per_enemy, 2.0);
-        assert_eq!(s.trajectory, "3 4x 5 5");
+        assert_eq!(s.trajectory, "3.00 4.00x 5.00 5.00");
         assert_eq!(s.in_band, 1.0);
     }
 

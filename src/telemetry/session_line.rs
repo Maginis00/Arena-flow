@@ -2,7 +2,7 @@
 //! lowercase words so the files stay readable and stable.
 
 use super::api::{PickupTaken, WEAPONS, WaveRecord, WeaponTally, weapon_slot};
-use crate::flow_director::api::{DecisionReason, Difficulty, Signal};
+use crate::flow_director::api::{DecisionReason, Difficulty};
 use crate::pickups::api::PickupKind;
 use crate::waves::api::{WaveIndex, WaveReport};
 use crate::weapons::api::WeaponKind;
@@ -13,12 +13,20 @@ use serde::{Deserialize, Serialize};
 pub(super) struct WaveLine {
     wave: u32,
     attempt: u32,
-    difficulty: u8,
+    /// Level in quarter steps, e.g. 3.25.
+    difficulty: f32,
     duration_secs: f32,
     enemies_spawned: u32,
     enemies_killed: u32,
     damage_taken: u32,
+    /// Missing in files written before the risk director.
+    #[serde(default)]
+    hits_taken: u32,
     player_max_hp: u32,
+    #[serde(default)]
+    start_hp: u32,
+    #[serde(default)]
+    lowest_hp: u32,
     player_died: bool,
     shots_fired: u32,
     shots_hit: u32,
@@ -55,17 +63,20 @@ impl From<&WaveRecord> for WaveLine {
         Self {
             wave: r.index.0,
             attempt: r.attempt,
-            difficulty: r.difficulty.get(),
+            difficulty: r.difficulty.level(),
             duration_secs: r.duration_secs,
             enemies_spawned: r.enemies_spawned,
             enemies_killed: r.enemies_killed,
             damage_taken: r.damage_taken,
+            hits_taken: r.hits_taken,
             player_max_hp: r.player_max_hp,
+            start_hp: r.start_hp,
+            lowest_hp: r.lowest_hp,
             player_died: r.player_died,
             shots_fired: r.shots_fired,
             shots_hit: r.shots_hit,
             pickups_collected: r.pickups_collected,
-            decision: w.decision.map(decision_name),
+            decision: w.decision.map(|d| decision_name(d).to_owned()),
             weapons: WEAPONS
                 .iter()
                 .map(|&weapon| {
@@ -125,12 +136,15 @@ impl WaveLine {
         let report = WaveReport {
             index: WaveIndex(self.wave),
             attempt: self.attempt,
-            difficulty: Difficulty::new(self.difficulty).map_err(|e| e.to_string())?,
+            difficulty: quarters(self.difficulty)?,
             duration_secs: self.duration_secs,
             enemies_spawned: self.enemies_spawned,
             enemies_killed: self.enemies_killed,
             damage_taken: self.damage_taken,
+            hits_taken: self.hits_taken,
             player_max_hp: self.player_max_hp,
+            start_hp: self.start_hp,
+            lowest_hp: self.lowest_hp,
             player_died: self.player_died,
             shots_fired: self.shots_fired,
             shots_hit: self.shots_hit,
@@ -167,32 +181,35 @@ fn parse_pickup(name: &str) -> Result<PickupKind, String> {
         .ok_or_else(|| format!("unknown pickup {name:?}"))
 }
 
-const DECISIONS: [DecisionReason; 11] = [
+const DECISIONS: [DecisionReason; 7] = [
     DecisionReason::Initial,
     DecisionReason::Raised,
-    DecisionReason::Lowered,
-    DecisionReason::HeldLowHp,
-    DecisionReason::HeldSlowClear,
+    DecisionReason::LoweredRisky,
+    DecisionReason::LoweredDied,
     DecisionReason::HeldInBand,
-    DecisionReason::HeldHysteresis(Signal::TooEasy),
-    DecisionReason::HeldHysteresis(Signal::InBand),
-    DecisionReason::HeldHysteresis(Signal::TooHard),
     DecisionReason::HeldAtMax,
     DecisionReason::HeldAtMin,
 ];
 
-fn decision_name(reason: DecisionReason) -> String {
+fn decision_name(reason: DecisionReason) -> &'static str {
     match reason {
-        DecisionReason::Initial => "initial".into(),
-        DecisionReason::Raised => "raised".into(),
-        DecisionReason::Lowered => "lowered".into(),
-        DecisionReason::HeldLowHp => "held_low_hp".into(),
-        DecisionReason::HeldSlowClear => "held_slow_clear".into(),
-        DecisionReason::HeldInBand => "held_in_band".into(),
-        DecisionReason::HeldHysteresis(signal) => format!("held_hysteresis_{signal:?}"),
-        DecisionReason::HeldAtMax => "held_at_max".into(),
-        DecisionReason::HeldAtMin => "held_at_min".into(),
+        DecisionReason::Initial => "initial",
+        DecisionReason::Raised => "raised",
+        DecisionReason::LoweredRisky => "lowered_risky",
+        DecisionReason::LoweredDied => "lowered_died",
+        DecisionReason::HeldInBand => "held_in_band",
+        DecisionReason::HeldAtMax => "held_at_max",
+        DecisionReason::HeldAtMin => "held_at_min",
     }
+}
+
+fn quarters(level: f32) -> Result<Difficulty, String> {
+    let q = (level * f32::from(Difficulty::QUARTERS_PER_LEVEL)).round();
+    if !(0.0..=f32::from(u8::MAX)).contains(&q) {
+        return Err(format!("difficulty {level} out of range"));
+    }
+    // In u8 range after the check above.
+    Difficulty::from_quarters(q as u8).map_err(|e| e.to_string())
 }
 
 fn parse_decision(name: &str) -> Result<DecisionReason, String> {
@@ -221,12 +238,15 @@ mod tests {
             report: WaveReport {
                 index: WaveIndex(4),
                 attempt: 2,
-                difficulty: Difficulty::new(5).expect("in range"),
+                difficulty: Difficulty::from_quarters(21).expect("in range"),
                 duration_secs: 12.5,
                 enemies_spawned: 14,
                 enemies_killed: 9,
                 damage_taken: 100,
+                hits_taken: 5,
                 player_max_hp: 100,
+                start_hp: 90,
+                lowest_hp: 0,
                 player_died: true,
                 shots_fired: 20,
                 shots_hit: 15,
@@ -240,7 +260,7 @@ mod tests {
                 max_hp: 100,
                 weapon: WeaponKind::Melee,
             }],
-            decision: Some(DecisionReason::HeldHysteresis(Signal::TooHard)),
+            decision: Some(DecisionReason::LoweredDied),
         };
         let json = serde_json::to_string(&WaveLine::from(&wave)).expect("serialises");
         let back: WaveLine = serde_json::from_str(&json).expect("parses");

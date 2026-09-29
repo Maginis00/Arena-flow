@@ -12,8 +12,8 @@ pub type Named<'a> = (String, &'a SessionRecord);
 /// Overall: where the director settled each session.
 pub fn table(rows: &[Named]) -> String {
     let mut out = String::from(
-        "| player | waves | clears | deaths | furthest | settled diff | range | in band | hit rate | s/enemy | hp lost/clear | pickups o/h/m |\n\
-         |---|---|---|---|---|---|---|---|---|---|---|---|\n",
+        "| player | waves | clears | deaths | furthest | settled diff | range | held in band | risk in band | median risk | hit rate | s/enemy | hp lost/clear | pickups o/h/m |\n\
+         |---|---|---|---|---|---|---|---|---|---|---|---|---|---|\n",
     );
     for (name, session) in rows {
         let s = Summary::of(session);
@@ -21,7 +21,7 @@ pub fn table(rows: &[Named]) -> String {
         // Writing to a String cannot fail.
         let _ = writeln!(
             out,
-            "| {name} | {} | {} | {} | {} | {:.1} | {}-{} | {:.0}% | {:.0}% | {:.2} | {:.0}% | {}/{}/{} |",
+            "| {name} | {} | {} | {} | {} | {:.2} | {:.2}-{:.2} | {:.0}% | {:.0}% | {:.2} | {:.0}% | {:.2} | {:.0}% | {}/{}/{} |",
             s.waves,
             s.clears,
             s.deaths,
@@ -30,6 +30,8 @@ pub fn table(rows: &[Named]) -> String {
             s.settled_range.0,
             s.settled_range.1,
             s.in_band * 100.0,
+            s.risk_in_band * 100.0,
+            s.median_risk,
             s.hit_rate * 100.0,
             s.secs_per_enemy,
             s.hp_lost_on_clear * 100.0,
