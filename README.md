@@ -85,3 +85,5 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for plugins, messages and schedule order.
 - Assets, sprites, animation, sound, fonts beyond Bevy's default
 - Upgrades, shops, bosses, procedural rooms, networking, save games
 - Balance: every number is a placeholder
+
+See [CLAUDE.md](CLAUDE.md) for the design north star, the process and the code conventions.
