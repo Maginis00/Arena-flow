@@ -2,74 +2,70 @@ use bevy::prelude::*;
 use std::fmt;
 use thiserror::Error;
 
-/// Difficulty level, always within `MIN..=MAX`.
+/// Difficulty level from 1.0 to 10.0 in quarter steps, always within
+/// `MIN..=MAX`. Stored as a whole number of quarters so it stays exact.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Difficulty(u8);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
-#[error("difficulty {0} is outside {min}..={max}", min = Difficulty::MIN.0, max = Difficulty::MAX.0)]
+#[error("difficulty of {0} quarters is outside {min}..={max}", min = Difficulty::MIN.0, max = Difficulty::MAX.0)]
 pub struct DifficultyOutOfRange(pub u8);
 
 impl Difficulty {
-    pub const MIN: Self = Self(1);
-    pub const MAX: Self = Self(10);
+    /// Steps per whole level.
+    pub const QUARTERS_PER_LEVEL: u8 = 4;
+    pub const MIN: Self = Self(Self::QUARTERS_PER_LEVEL);
+    pub const MAX: Self = Self(10 * Self::QUARTERS_PER_LEVEL);
 
+    /// A whole level, `1..=10`.
     pub const fn new(level: u8) -> Result<Self, DifficultyOutOfRange> {
-        if level >= Self::MIN.0 && level <= Self::MAX.0 {
-            Ok(Self(level))
+        Self::from_quarters(level.saturating_mul(Self::QUARTERS_PER_LEVEL))
+    }
+
+    /// A level in quarter steps: 13 quarters is level 3.25.
+    pub const fn from_quarters(quarters: u8) -> Result<Self, DifficultyOutOfRange> {
+        if quarters >= Self::MIN.0 && quarters <= Self::MAX.0 {
+            Ok(Self(quarters))
         } else {
-            Err(DifficultyOutOfRange(level))
+            Err(DifficultyOutOfRange(quarters))
         }
     }
 
-    pub const fn get(self) -> u8 {
+    pub const fn quarters(self) -> u8 {
         self.0
     }
 
-    /// Step up or down by one, clamped to `MIN..=MAX`.
-    pub fn stepped(self, step: Step) -> Self {
-        let level = match step {
-            Step::Up => self.0.saturating_add(1),
-            Step::Hold => self.0,
-            Step::Down => self.0.saturating_sub(1),
-        };
-        Self(level.clamp(Self::MIN.0, Self::MAX.0))
+    /// The level as a number, `1.0..=10.0`.
+    pub fn level(self) -> f32 {
+        f32::from(self.0) / f32::from(Self::QUARTERS_PER_LEVEL)
+    }
+
+    /// Move by `quarters` (negative is easier), clamped to `MIN..=MAX`.
+    pub fn shifted(self, quarters: i16) -> Self {
+        let moved =
+            (i16::from(self.0) + quarters).clamp(i16::from(Self::MIN.0), i16::from(Self::MAX.0));
+        // In range after the clamp, so the conversion cannot fail.
+        Self(u8::try_from(moved).unwrap_or(Self::MIN.0))
     }
 }
 
 impl fmt::Display for Difficulty {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.fmt(f)
+        write!(f, "{:.2}", self.level())
     }
 }
 
-/// Direction of a difficulty change.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Step {
-    Up,
-    Hold,
-    Down,
-}
-
-/// How the last wave read against the flow channel.
+/// How the last waves read against the flow band.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Signal {
-    /// Cleared fast with high hp.
+    /// Smoothed risk below the band: the player is safe, bored side.
     TooEasy,
-    /// Cleared, but close (low hp or slow) or unremarkable.
+    /// Smoothed risk inside the band.
     InBand,
-    /// Player died (wave failed).
-    TooHard,
-}
-
-impl Signal {
-    pub const fn step(self) -> Step {
-        match self {
-            Self::TooEasy => Step::Up,
-            Self::InBand => Step::Hold,
-            Self::TooHard => Step::Down,
-        }
-    }
+    /// Smoothed risk above the band: the anxious side.
+    TooRisky,
+    /// The player died this wave.
+    Died,
 }
 
 /// Why the director chose the difficulty it did. Shown in telemetry.
@@ -77,19 +73,14 @@ impl Signal {
 pub enum DecisionReason {
     /// Starting difficulty before any wave was played.
     Initial,
-    /// Cleared fast with high hp.
+    /// Smoothed risk below the band.
     Raised,
+    /// Smoothed risk above the band.
+    LoweredRisky,
     /// Player died.
-    Lowered,
-    /// Cleared with low hp.
-    HeldLowHp,
-    /// Cleared, but slowly.
-    HeldSlowClear,
-    /// Cleared, neither fast nor close.
+    LoweredDied,
+    /// Smoothed risk inside the band.
     HeldInBand,
-    /// Signal asked for a change, but difficulty changed last wave for a
-    /// different signal. Waiting for it to repeat.
-    HeldHysteresis(Signal),
     /// Wanted to go up but already at the maximum.
     HeldAtMax,
     /// Wanted to go down but already at the minimum.
@@ -98,22 +89,15 @@ pub enum DecisionReason {
 
 impl fmt::Display for DecisionReason {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Initial => f.write_str("initial difficulty"),
-            Self::Raised => f.write_str("too easy: cleared fast with high hp, +1"),
-            Self::Lowered => f.write_str("too hard: player died, -1"),
-            Self::HeldLowHp => f.write_str("in band: cleared with low hp, hold"),
-            Self::HeldSlowClear => f.write_str("in band: cleared slowly, hold"),
-            Self::HeldInBand => f.write_str("in band: hold"),
-            Self::HeldHysteresis(signal) => {
-                write!(
-                    f,
-                    "hysteresis: {signal:?} after a change, waiting for repeat, hold"
-                )
-            }
-            Self::HeldAtMax => f.write_str("too easy but at max difficulty, hold"),
-            Self::HeldAtMin => f.write_str("too hard but at min difficulty, hold"),
-        }
+        f.write_str(match self {
+            Self::Initial => "initial difficulty",
+            Self::Raised => "too safe: smoothed risk below band, up",
+            Self::LoweredRisky => "too risky: smoothed risk above band, down",
+            Self::LoweredDied => "player died, down",
+            Self::HeldInBand => "in band: hold",
+            Self::HeldAtMax => "too safe but at max difficulty, hold",
+            Self::HeldAtMin => "too risky but at min difficulty, hold",
+        })
     }
 }
 
@@ -133,4 +117,14 @@ pub struct DifficultyAdjusted {
     pub difficulty: Difficulty,
     pub reason: DecisionReason,
     pub levers: WaveLevers,
+    /// Risk of the wave just finished and the smoothed risk the decision used,
+    /// both in `[0, 1]`. `None` for the initial difficulty.
+    pub risk: Option<RiskReading>,
+}
+
+/// The director's reading of how risky play has been.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct RiskReading {
+    pub wave: f32,
+    pub smoothed: f32,
 }

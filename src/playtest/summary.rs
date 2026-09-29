@@ -3,6 +3,7 @@
 
 use super::session::SessionLog;
 use crate::flow_director::api::DecisionReason;
+use crate::flow_director::{DirectorConfig, wave_risk};
 use crate::pickups::api::PickupKind;
 use std::fmt::Write as _;
 
@@ -17,9 +18,13 @@ pub struct Summary {
     /// Mean difficulty over the second half of waves: where the director settled.
     pub settled: f32,
     /// Lowest and highest difficulty over the second half.
-    pub settled_range: (u8, u8),
+    pub settled_range: (f32, f32),
     /// Share of post-wave decisions that held because the wave read in band.
     pub in_band: f32,
+    /// Share of waves whose own risk fell inside the director's band.
+    pub risk_in_band: f32,
+    /// Median risk per wave (1 - lowest hp fraction, 1 on death).
+    pub median_risk: f32,
     /// Shots that hit something, over shots fired.
     pub hit_rate: f32,
     /// Mean seconds per enemy on cleared waves.
@@ -35,7 +40,10 @@ impl Summary {
         let reports = &log.reports;
         let cleared: Vec<_> = reports.iter().filter(|r| r.cleared()).collect();
         let second_half = &reports[reports.len() / 2..];
-        let levels: Vec<u8> = second_half.iter().map(|r| r.difficulty.get()).collect();
+        let levels: Vec<f32> = second_half.iter().map(|r| r.difficulty.level()).collect();
+        let band = DirectorConfig::default();
+        let mut risks: Vec<f32> = reports.iter().map(wave_risk).collect();
+        risks.sort_by(f32::total_cmp);
         let fired: u32 = reports.iter().map(|r| r.shots_fired).sum();
         let hit: u32 = reports.iter().map(|r| r.shots_hit).sum();
         let after_waves: Vec<_> = log
@@ -45,14 +53,7 @@ impl Summary {
             .collect();
         let held = after_waves
             .iter()
-            .filter(|d| {
-                matches!(
-                    d.reason,
-                    DecisionReason::HeldInBand
-                        | DecisionReason::HeldLowHp
-                        | DecisionReason::HeldSlowClear
-                )
-            })
+            .filter(|d| d.reason == DecisionReason::HeldInBand)
             .count();
         let mut trajectory = String::new();
         for r in reports {
@@ -69,12 +70,17 @@ impl Summary {
             clears: cleared.len(),
             deaths: reports.iter().filter(|r| r.player_died).count(),
             furthest_wave: reports.iter().map(|r| r.index.0).max().unwrap_or(0),
-            settled: mean(levels.iter().map(|l| f32::from(*l))),
+            settled: mean(levels.iter().copied()),
             settled_range: (
-                levels.iter().copied().min().unwrap_or(0),
-                levels.iter().copied().max().unwrap_or(0),
+                levels.iter().copied().reduce(f32::min).unwrap_or(0.0),
+                levels.iter().copied().reduce(f32::max).unwrap_or(0.0),
             ),
             in_band: ratio(held, after_waves.len()),
+            risk_in_band: ratio(
+                risks.iter().filter(|r| band.in_band(**r)).count(),
+                risks.len(),
+            ),
+            median_risk: risks.get(risks.len() / 2).copied().unwrap_or(0.0),
             hit_rate: ratio(hit as usize, fired as usize),
             secs_per_enemy: mean(
                 cleared
@@ -90,14 +96,14 @@ impl Summary {
 /// Header and one row per session, as a Markdown table.
 pub fn table(rows: &[(String, &SessionLog)]) -> String {
     let mut out = String::from(
-        "| bot | waves | clears | deaths | furthest | settled diff | range | in band | hit rate | s/enemy | hp lost/clear | pickups o/h/m |\n\
-         |---|---|---|---|---|---|---|---|---|---|---|---|\n",
+        "| bot | waves | clears | deaths | furthest | settled diff | range | held in band | risk in band | median risk | hit rate | s/enemy | hp lost/clear | pickups o/h/m |\n\
+         |---|---|---|---|---|---|---|---|---|---|---|---|---|---|\n",
     );
     for (name, log) in rows {
         let s = Summary::of(log);
         let _ = writeln!(
             out,
-            "| {name} | {} | {} | {} | {} | {:.1} | {}-{} | {:.0}% | {:.0}% | {:.2} | {:.0}% | {}/{}/{} |",
+            "| {name} | {} | {} | {} | {} | {:.1} | {:.2}-{:.2} | {:.0}% | {:.0}% | {:.2} | {:.0}% | {:.2} | {:.0}% | {}/{}/{} |",
             s.waves,
             s.clears,
             s.deaths,
@@ -106,6 +112,8 @@ pub fn table(rows: &[(String, &SessionLog)]) -> String {
             s.settled_range.0,
             s.settled_range.1,
             s.in_band * 100.0,
+            s.risk_in_band * 100.0,
+            s.median_risk,
             s.hit_rate * 100.0,
             s.secs_per_enemy,
             s.hp_lost_on_clear * 100.0,
@@ -145,7 +153,10 @@ mod tests {
             enemies_spawned: 5,
             enemies_killed: if died { 2 } else { 5 },
             damage_taken: 20,
+            hits_taken: 2,
             player_max_hp: 100,
+            start_hp: 100,
+            lowest_hp: if died { 0 } else { 80 },
             player_died: died,
             shots_fired: 10,
             shots_hit: 5,
@@ -167,10 +178,11 @@ mod tests {
         let s = Summary::of(&log);
         assert_eq!((s.waves, s.clears, s.deaths, s.furthest_wave), (4, 3, 1, 3));
         assert_eq!(s.settled, 5.0);
-        assert_eq!(s.settled_range, (5, 5));
+        assert_eq!(s.settled_range, (5.0, 5.0));
+        assert_eq!(s.median_risk, 0.2);
         assert_eq!(s.hit_rate, 0.5);
         assert_eq!(s.secs_per_enemy, 2.0);
-        assert_eq!(s.trajectory, "3 4x 5 5");
+        assert_eq!(s.trajectory, "3.00 4.00x 5.00 5.00");
     }
 
     #[test]

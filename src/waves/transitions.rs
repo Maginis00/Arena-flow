@@ -77,7 +77,14 @@ fn report(machine: &WaveMachine, spec: WaveSpec) -> WaveReport {
         enemies_spawned: s.enemies_spawned,
         enemies_killed: s.enemies_killed,
         damage_taken: s.damage_taken,
+        hits_taken: s.hits_taken,
         player_max_hp: machine.player_max_hp,
+        start_hp: s.start_hp.unwrap_or(machine.player_hp),
+        lowest_hp: if s.player_died {
+            0
+        } else {
+            s.lowest_hp.unwrap_or(machine.player_hp)
+        },
         player_died: s.player_died,
         shots_fired: s.shots_fired,
         shots_hit: count(s.shots_hit.len()),
