@@ -7,14 +7,14 @@
 mod bot;
 mod choices;
 mod perception;
+mod report;
 mod session;
 mod steering;
 mod summary;
 mod tier;
-mod weapon_use;
 
 pub use bot::PlaytestBotPlugin;
-pub use session::{SessionConfig, SessionLog, play};
-pub use summary::{Summary, table, weapon_table};
+pub use report::{Named, pickup_table, table, weapon_table};
+pub use session::{SessionConfig, play};
+pub use summary::Summary;
 pub use tier::{PickupPolicy, SkillTier, TierParams, WeaponPolicy};
-pub use weapon_use::{WEAPONS, WeaponTally, WeaponUse};

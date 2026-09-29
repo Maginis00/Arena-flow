@@ -1,8 +1,13 @@
-//! Rolling window of recent wave reports plus a debug text overlay.
+//! Rolling window of recent wave reports plus a debug text overlay, and a
+//! record of the whole session (per wave, per weapon, every pickup) that a
+//! windowed game also writes to `playtests/` for the playtest report.
 //! Runs in `Update`: it only observes facts, it never drives simulation.
 //! The overlay (which shows the difficulty number) exists only in debug builds.
 
 pub mod api;
+mod record;
+mod record_file;
+mod session_line;
 
 use crate::combat::api::{EnemyKilled, PlayerDamaged, PlayerHealed};
 use crate::flow_director::api::{DecisionReason, Difficulty, DifficultyAdjusted};
@@ -22,7 +27,16 @@ pub struct TelemetryPlugin;
 impl Plugin for TelemetryPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Telemetry>()
-            .add_systems(Update, collect);
+            .init_resource::<api::SessionRecord>()
+            .init_resource::<record::Recorder>()
+            .init_resource::<record_file::SessionFile>()
+            .add_systems(
+                Update,
+                (
+                    collect,
+                    (record::record_session, record_file::write_session_file).chain(),
+                ),
+            );
         if cfg!(debug_assertions) {
             app.add_systems(Startup, spawn_overlay)
                 .add_systems(Update, render_overlay.after(collect));

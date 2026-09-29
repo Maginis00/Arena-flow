@@ -1,10 +1,9 @@
-//! Turns a session log into the numbers that say whether the director keeps a
+//! Turns a session record into the numbers that say whether the director keeps a
 //! tier in its own band. Pure; unit-tested.
 
-use super::session::SessionLog;
-use super::weapon_use::WEAPONS;
 use crate::flow_director::api::DecisionReason;
-use crate::pickups::api::PickupKind;
+use crate::telemetry::api::SessionRecord;
+use crate::waves::api::WaveReport;
 use std::fmt::Write as _;
 
 /// Headline numbers for one session.
@@ -32,23 +31,20 @@ pub struct Summary {
 }
 
 impl Summary {
-    pub fn of(log: &SessionLog) -> Self {
-        let reports = &log.reports;
+    pub fn of(session: &SessionRecord) -> Self {
+        let reports: Vec<&WaveReport> = session.waves.iter().map(|w| &w.report).collect();
         let cleared: Vec<_> = reports.iter().filter(|r| r.cleared()).collect();
         let second_half = &reports[reports.len() / 2..];
         let levels: Vec<u8> = second_half.iter().map(|r| r.difficulty.get()).collect();
         let fired: u32 = reports.iter().map(|r| r.shots_fired).sum();
         let hit: u32 = reports.iter().map(|r| r.shots_hit).sum();
-        let after_waves: Vec<_> = log
-            .decisions
-            .iter()
-            .filter(|d| d.reason != DecisionReason::Initial)
-            .collect();
-        let held = after_waves
+        let decisions: Vec<DecisionReason> =
+            session.waves.iter().filter_map(|w| w.decision).collect();
+        let held = decisions
             .iter()
             .filter(|d| {
                 matches!(
-                    d.reason,
+                    d,
                     DecisionReason::HeldInBand
                         | DecisionReason::HeldLowHp
                         | DecisionReason::HeldSlowClear
@@ -56,7 +52,7 @@ impl Summary {
             })
             .count();
         let mut trajectory = String::new();
-        for r in reports {
+        for r in &reports {
             // Writing to a String cannot fail.
             let _ = write!(
                 trajectory,
@@ -75,7 +71,7 @@ impl Summary {
                 levels.iter().copied().min().unwrap_or(0),
                 levels.iter().copied().max().unwrap_or(0),
             ),
-            in_band: ratio(held, after_waves.len()),
+            in_band: ratio(held, decisions.len()),
             hit_rate: ratio(hit as usize, fired as usize),
             secs_per_enemy: mean(
                 cleared
@@ -88,75 +84,12 @@ impl Summary {
     }
 }
 
-/// Header and one row per session, as a Markdown table.
-pub fn table(rows: &[(String, &SessionLog)]) -> String {
-    let mut out = String::from(
-        "| bot | waves | clears | deaths | furthest | settled diff | range | in band | hit rate | s/enemy | hp lost/clear | pickups o/h/m |\n\
-         |---|---|---|---|---|---|---|---|---|---|---|---|\n",
-    );
-    for (name, log) in rows {
-        let s = Summary::of(log);
-        let _ = writeln!(
-            out,
-            "| {name} | {} | {} | {} | {} | {:.1} | {}-{} | {:.0}% | {:.0}% | {:.2} | {:.0}% | {}/{}/{} |",
-            s.waves,
-            s.clears,
-            s.deaths,
-            s.furthest_wave,
-            s.settled,
-            s.settled_range.0,
-            s.settled_range.1,
-            s.in_band * 100.0,
-            s.hit_rate * 100.0,
-            s.secs_per_enemy,
-            s.hp_lost_on_clear * 100.0,
-            log.pickups_of(PickupKind::Overdrive),
-            log.pickups_of(PickupKind::Heavy),
-            log.pickups_of(PickupKind::Mend),
-        );
-    }
-    out
-}
-
-/// One row per session and weapon actually held, as a Markdown table.
-pub fn weapon_table(rows: &[(String, &SessionLog)]) -> String {
-    let mut out = String::from(
-        "| bot | weapon | held | kills | kills/min | hit rate | dmg taken/min | deaths | deaths/10 min |\n\
-         |---|---|---|---|---|---|---|---|---|\n",
-    );
-    for (name, log) in rows {
-        let total: f32 = log.weapons.tallies.iter().map(|t| t.secs_held).sum();
-        for weapon in WEAPONS {
-            let t = log.weapons.of(weapon);
-            if t.secs_held < 1.0 {
-                continue;
-            }
-            let _ = writeln!(
-                out,
-                "| {name} | {weapon} | {:.0}% | {} | {:.1} | {:.0}% | {:.1} | {} | {:.1} |",
-                ratio_f(t.secs_held, total) * 100.0,
-                t.kills,
-                t.per_minute(t.kills),
-                t.hit_rate() * 100.0,
-                t.per_minute(t.damage_taken),
-                t.deaths,
-                t.per_minute(t.deaths) * 10.0,
-            );
-        }
-    }
-    out
-}
-
-fn ratio_f(part: f32, whole: f32) -> f32 {
-    if whole <= 0.0 { 0.0 } else { part / whole }
-}
-
-fn mean(values: impl Iterator<Item = f32>) -> f32 {
+pub(super) fn mean(values: impl Iterator<Item = f32>) -> f32 {
     let (sum, n) = values.fold((0.0, 0u32), |(s, n), v| (s + v, n + 1));
     if n == 0 { 0.0 } else { sum / n as f32 }
 }
 
-fn ratio(part: usize, whole: usize) -> f32 {
+pub(super) fn ratio(part: usize, whole: usize) -> f32 {
     if whole == 0 {
         0.0
     } else {
@@ -168,10 +101,11 @@ fn ratio(part: usize, whole: usize) -> f32 {
 mod tests {
     use super::*;
     use crate::flow_director::api::Difficulty;
-    use crate::waves::api::{WaveIndex, WaveReport};
+    use crate::telemetry::api::WaveRecord;
+    use crate::waves::api::WaveIndex;
 
-    fn report(index: u32, level: u8, died: bool) -> WaveReport {
-        WaveReport {
+    fn wave(index: u32, level: u8, died: bool) -> WaveRecord {
+        let report = WaveReport {
             index: WaveIndex(index),
             attempt: 1,
             difficulty: Difficulty::new(level).unwrap_or(Difficulty::MIN),
@@ -184,19 +118,24 @@ mod tests {
             shots_fired: 10,
             shots_hit: 5,
             pickups_collected: 0,
+        };
+        WaveRecord {
+            report,
+            weapons: Default::default(),
+            pickups: Vec::new(),
+            decision: Some(DecisionReason::HeldInBand),
         }
     }
 
     #[test]
     fn summary_settles_on_the_second_half() {
-        let log = SessionLog {
-            reports: vec![
-                report(1, 3, false),
-                report(2, 4, true),
-                report(2, 5, false),
-                report(3, 5, false),
+        let log = SessionRecord {
+            waves: vec![
+                wave(1, 3, false),
+                wave(2, 4, true),
+                wave(2, 5, false),
+                wave(3, 5, false),
             ],
-            ..SessionLog::default()
         };
         let s = Summary::of(&log);
         assert_eq!((s.waves, s.clears, s.deaths, s.furthest_wave), (4, 3, 1, 3));
@@ -205,11 +144,12 @@ mod tests {
         assert_eq!(s.hit_rate, 0.5);
         assert_eq!(s.secs_per_enemy, 2.0);
         assert_eq!(s.trajectory, "3 4x 5 5");
+        assert_eq!(s.in_band, 1.0);
     }
 
     #[test]
     fn empty_log_is_all_zeros() {
-        let s = Summary::of(&SessionLog::default());
+        let s = Summary::of(&SessionRecord::default());
         assert_eq!((s.waves, s.settled, s.hit_rate), (0, 0.0, 0.0));
     }
 }

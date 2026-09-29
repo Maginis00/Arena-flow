@@ -1,15 +1,12 @@
 //! One headless playtest session: the real game plugins, one bot, a fixed
-//! clock, and a log of what happened.
+//! clock, and telemetry's record of what happened.
 
 use super::bot::PlaytestBotPlugin;
 use super::tier::{SkillTier, WeaponPolicy};
-use super::weapon_use::{WeaponUse, record_weapon_use};
 use crate::FlowArenaPlugins;
 use crate::app_setup::api::FIXED_HZ;
 use crate::debug_render::DebugRenderPlugin;
-use crate::flow_director::api::DifficultyAdjusted;
-use crate::pickups::api::{PickupCollected, PickupKind};
-use crate::waves::api::WaveReport;
+use crate::telemetry::api::SessionRecord;
 use crate::weapons::api::WeaponKind;
 use bevy::input::InputPlugin;
 use bevy::prelude::*;
@@ -27,28 +24,8 @@ pub struct SessionConfig {
     pub weapon_lock: Option<WeaponKind>,
 }
 
-/// Everything the session observed, in order.
-#[derive(Resource, Debug, Clone, Default)]
-pub struct SessionLog {
-    pub reports: Vec<WaveReport>,
-    pub decisions: Vec<DifficultyAdjusted>,
-    /// Collected pickups, indexed like [`PickupKind::ALL`].
-    pub pickups: [u32; 3],
-    pub weapons: WeaponUse,
-}
-
-impl SessionLog {
-    pub fn pickups_of(&self, kind: PickupKind) -> u32 {
-        PickupKind::ALL
-            .iter()
-            .position(|k| *k == kind)
-            .and_then(|i| self.pickups.get(i).copied())
-            .unwrap_or(0)
-    }
-}
-
 /// Run one session to completion and return its log.
-pub fn play(config: SessionConfig) -> SessionLog {
+pub fn play(config: SessionConfig) -> SessionRecord {
     let mut params = config.tier.params();
     if let Some(weapon) = config.weapon_lock {
         params.weapon = WeaponPolicy::Fixed(weapon);
@@ -62,33 +39,15 @@ pub fn play(config: SessionConfig) -> SessionLog {
         })
         .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(
             1.0 / FIXED_HZ,
-        )))
-        .init_resource::<SessionLog>()
-        .init_resource::<WeaponUse>()
-        .add_systems(Update, (record, record_weapon_use));
+        )));
 
     // One app update is one simulation tick at this clock.
     let ticks = (f64::from(config.minutes.max(0.0)) * 60.0 * FIXED_HZ).round() as u64;
     for _ in 0..ticks {
         app.update();
     }
-    let world = app.world_mut();
-    let mut log = world.remove_resource::<SessionLog>().unwrap_or_default();
-    log.weapons = world.remove_resource::<WeaponUse>().unwrap_or_default();
-    log
-}
-
-fn record(
-    mut log: ResMut<SessionLog>,
-    mut reports: MessageReader<WaveReport>,
-    mut decisions: MessageReader<DifficultyAdjusted>,
-    mut pickups: MessageReader<PickupCollected>,
-) {
-    log.reports.extend(reports.read().copied());
-    log.decisions.extend(decisions.read().copied());
-    for collected in pickups.read() {
-        if let Some(i) = PickupKind::ALL.iter().position(|k| *k == collected.kind) {
-            log.pickups[i] += 1;
-        }
-    }
+    // Telemetry records every session; take its record.
+    app.world_mut()
+        .remove_resource::<SessionRecord>()
+        .unwrap_or_default()
 }
