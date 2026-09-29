@@ -108,3 +108,15 @@ pure and unit-tested (`cargo test`). The system around it only reads
 `flow_director::levers_for(difficulty)` maps difficulty to the three v1
 levers: enemy count, enemy speed, enemy contact damage. The decision applies
 to the next wave only, because waves reads the levers when that wave starts.
+
+## Playtest bots (playtest)
+
+Not a gameplay plugin: `FlowArenaPlugins` does not include it. `playtest::play`
+builds a headless app (`MinimalPlugins`, `InputPlugin`, every gameplay plugin
+except debug_render, a fixed 1/60 s clock) and adds `PlaytestBotPlugin`, which
+runs `perceive` then `act` in `SimSet::Intent`. The bot only uses what a human
+has: it presses keys in `ButtonInput<KeyCode>` for movement and weapon choice,
+and writes `FireRequested` as the mouse would. It sees the world through a delay
+line of snapshots (reaction time). Pure parts are split out and unit-tested:
+`steering` (dodge, wall push, eight-way snapping), `choices` (pickup judgement,
+weapon choice), `perception` (delay line, deterministic rng) and `summary`.

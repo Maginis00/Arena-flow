@@ -13,7 +13,8 @@ Requires stable Rust 1.95 or newer (bevy 0.19.1's minimum).
 ```sh
 cargo run            # play (debug build: shows the telemetry overlay)
 cargo run --release  # play without the overlay
-cargo test           # unit tests + headless multi-wave runs (idle and aim-bot)
+cargo test           # unit tests + headless multi-wave runs (idle, aim-bot, playtest bots)
+cargo run --release --example playtest   # playtest report for every skill tier
 ```
 
 On Linux, Bevy needs the usual system packages (for example on Debian or
@@ -75,6 +76,22 @@ Difficulty is clamped to 1..=10. Hysteresis: after a change, the next wave can
 change difficulty again only if the same signal repeats. Difficulty drives
 enemy count, enemy speed and enemy contact damage only. All thresholds and
 curves are placeholder constants marked `PLACEHOLDER` in the source.
+
+## Playtest bots
+
+`cargo run --release --example playtest` runs four simulated players
+(novice, casual, skilled, expert) through the real game plugins, headless and
+deterministic, and prints a table of where the flow director settled each one:
+waves, deaths, settled difficulty, share of waves the director read as in band,
+hit rate, clear speed, hp lost and pickups taken. Options: `--minutes N`
+(simulated, default 10), `--seeds N` (varies aim wobble), `--tier NAME`
+(repeatable).
+
+Bots move with `W` `A` `S` `D`, switch weapons with `1` `2` `3` and fire the same
+intent the mouse does. Tiers differ only in measurable limits: reaction delay,
+decision rate, aim error, dodge radius, strafing, wall awareness, trigger
+discipline, pickup judgement and weapon choice. All tier numbers are
+PLACEHOLDER, in `src/playtest/tier.rs`.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for plugins, messages and schedule order.
 
