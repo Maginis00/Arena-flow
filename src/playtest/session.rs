@@ -2,13 +2,15 @@
 //! clock, and a log of what happened.
 
 use super::bot::PlaytestBotPlugin;
-use super::tier::SkillTier;
+use super::tier::{SkillTier, WeaponPolicy};
+use super::weapon_use::{WeaponUse, record_weapon_use};
 use crate::FlowArenaPlugins;
 use crate::app_setup::api::FIXED_HZ;
 use crate::debug_render::DebugRenderPlugin;
 use crate::flow_director::api::DifficultyAdjusted;
 use crate::pickups::api::{PickupCollected, PickupKind};
 use crate::waves::api::WaveReport;
+use crate::weapons::api::WeaponKind;
 use bevy::input::InputPlugin;
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
@@ -21,6 +23,8 @@ pub struct SessionConfig {
     pub seed: u32,
     /// Simulated minutes, not wall-clock.
     pub minutes: f32,
+    /// Hold only this weapon instead of the tier's own weapon choice.
+    pub weapon_lock: Option<WeaponKind>,
 }
 
 /// Everything the session observed, in order.
@@ -30,6 +34,7 @@ pub struct SessionLog {
     pub decisions: Vec<DifficultyAdjusted>,
     /// Collected pickups, indexed like [`PickupKind::ALL`].
     pub pickups: [u32; 3],
+    pub weapons: WeaponUse,
 }
 
 impl SessionLog {
@@ -44,27 +49,33 @@ impl SessionLog {
 
 /// Run one session to completion and return its log.
 pub fn play(config: SessionConfig) -> SessionLog {
+    let mut params = config.tier.params();
+    if let Some(weapon) = config.weapon_lock {
+        params.weapon = WeaponPolicy::Fixed(weapon);
+    }
     let mut app = App::new();
     app.add_plugins((MinimalPlugins, InputPlugin))
         .add_plugins(FlowArenaPlugins.build().disable::<DebugRenderPlugin>())
         .add_plugins(PlaytestBotPlugin {
-            tier: config.tier,
+            params,
             seed: config.seed,
         })
         .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(
             1.0 / FIXED_HZ,
         )))
         .init_resource::<SessionLog>()
-        .add_systems(Update, record);
+        .init_resource::<WeaponUse>()
+        .add_systems(Update, (record, record_weapon_use));
 
     // One app update is one simulation tick at this clock.
     let ticks = (f64::from(config.minutes.max(0.0)) * 60.0 * FIXED_HZ).round() as u64;
     for _ in 0..ticks {
         app.update();
     }
-    app.world_mut()
-        .remove_resource::<SessionLog>()
-        .unwrap_or_default()
+    let world = app.world_mut();
+    let mut log = world.remove_resource::<SessionLog>().unwrap_or_default();
+    log.weapons = world.remove_resource::<WeaponUse>().unwrap_or_default();
+    log
 }
 
 fn record(

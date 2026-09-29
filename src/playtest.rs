@@ -11,8 +11,10 @@ mod session;
 mod steering;
 mod summary;
 mod tier;
+mod weapon_use;
 
 pub use bot::PlaytestBotPlugin;
 pub use session::{SessionConfig, SessionLog, play};
-pub use summary::{Summary, table};
+pub use summary::{Summary, table, weapon_table};
 pub use tier::{PickupPolicy, SkillTier, TierParams, WeaponPolicy};
+pub use weapon_use::{WEAPONS, WeaponTally, WeaponUse};

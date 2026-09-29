@@ -83,9 +83,13 @@ curves are placeholder constants marked `PLACEHOLDER` in the source.
 (novice, casual, skilled, expert) through the real game plugins, headless and
 deterministic, and prints a table of where the flow director settled each one:
 waves, deaths, settled difficulty, share of waves the director read as in band,
-hit rate, clear speed, hp lost and pickups taken. Options: `--minutes N`
-(simulated, default 10), `--seeds N` (varies aim wobble), `--tier NAME`
-(repeatable).
+hit rate, clear speed, hp lost and pickups taken. A second table splits the
+run by weapon: share of wave time held, kills (credited to the weapon that
+landed the killing blow), hit rate, and damage taken and deaths while holding
+it. Options: `--minutes N` (simulated, default 10), `--seeds N` (varies aim
+wobble), `--tier NAME` (repeatable), `--weapon NAME` (locks the bot to one
+weapon, repeatable), `--matrix` (every tier with its own choice and locked to
+each weapon).
 
 Bots move with `W` `A` `S` `D`, switch weapons with `1` `2` `3` and fire the same
 intent the mouse does. Tiers differ only in measurable limits: reaction delay,

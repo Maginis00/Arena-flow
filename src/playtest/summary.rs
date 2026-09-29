@@ -2,6 +2,7 @@
 //! tier in its own band. Pure; unit-tested.
 
 use super::session::SessionLog;
+use super::weapon_use::WEAPONS;
 use crate::flow_director::api::DecisionReason;
 use crate::pickups::api::PickupKind;
 use std::fmt::Write as _;
@@ -115,6 +116,39 @@ pub fn table(rows: &[(String, &SessionLog)]) -> String {
         );
     }
     out
+}
+
+/// One row per session and weapon actually held, as a Markdown table.
+pub fn weapon_table(rows: &[(String, &SessionLog)]) -> String {
+    let mut out = String::from(
+        "| bot | weapon | held | kills | kills/min | hit rate | dmg taken/min | deaths | deaths/10 min |\n\
+         |---|---|---|---|---|---|---|---|---|\n",
+    );
+    for (name, log) in rows {
+        let total: f32 = log.weapons.tallies.iter().map(|t| t.secs_held).sum();
+        for weapon in WEAPONS {
+            let t = log.weapons.of(weapon);
+            if t.secs_held < 1.0 {
+                continue;
+            }
+            let _ = writeln!(
+                out,
+                "| {name} | {weapon} | {:.0}% | {} | {:.1} | {:.0}% | {:.1} | {} | {:.1} |",
+                ratio_f(t.secs_held, total) * 100.0,
+                t.kills,
+                t.per_minute(t.kills),
+                t.hit_rate() * 100.0,
+                t.per_minute(t.damage_taken),
+                t.deaths,
+                t.per_minute(t.deaths) * 10.0,
+            );
+        }
+    }
+    out
+}
+
+fn ratio_f(part: f32, whole: f32) -> f32 {
+    if whole <= 0.0 { 0.0 } else { part / whole }
 }
 
 fn mean(values: impl Iterator<Item = f32>) -> f32 {
