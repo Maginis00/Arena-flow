@@ -14,8 +14,17 @@ Requires stable Rust 1.95 or newer (bevy 0.19.1's minimum).
 cargo run            # play (debug build: shows the telemetry overlay)
 cargo run --release  # play without the overlay
 cargo test           # unit tests + headless multi-wave runs (idle, aim-bot, playtest bots)
-cargo run --release --example playtest   # playtest report for every skill tier
+cargo run --example playtest                    # playtest report for every skill tier
+cargo run --example playtest -- --watch --tier expert   # watch one bot play
 ```
+
+The debug build is the everyday profile: our code at `opt-level = 1`,
+dependencies at `opt-level = 3`, so the game runs smoothly. `--release` is a
+second full Bevy build; skip it unless you need it.
+
+Building Bevy is memory hungry. `.cargo/config.toml` caps cargo at 3 parallel
+jobs and the dev profile keeps only line tables as debug info, so a full build
+fits on a 16 GB machine. Raise `jobs` there if you have more memory.
 
 On Linux, Bevy needs the usual system packages (for example on Debian or
 Ubuntu: `libudev-dev libwayland-dev libxkbcommon-dev`, plus X11 dev headers).
@@ -79,7 +88,7 @@ curves are placeholder constants marked `PLACEHOLDER` in the source.
 
 ## Playtest bots
 
-`cargo run --release --example playtest` runs four simulated players
+`cargo run --example playtest` runs four simulated players
 (novice, casual, skilled, expert) through the real game plugins, headless and
 deterministic, and prints a table of where the flow director settled each one:
 waves, deaths, settled difficulty, share of waves the director read as in band,
@@ -92,6 +101,27 @@ intent the mouse does. Tiers differ only in measurable limits: reaction delay,
 decision rate, aim error, dodge radius, strafing, wall awareness, trigger
 discipline, pickup judgement and weapon choice. All tier numbers are
 PLACEHOLDER, in `src/playtest/tier.rs`.
+
+### Watching a bot
+
+`--watch` opens the normal game window and lets one bot play in real time, so
+you can see how a tier actually moves, aims and picks up. The first `--tier`
+plays (default expert), `--seeds N` picks the seed, and `--weapon projectile`,
+`hitscan` or `melee` pins one weapon instead of the tier's own choice. The
+bottom-left label shows the bot, its weapon, the next difficulty and the
+director's last reason; in the debug build the usual overlay is there too.
+
+```sh
+cargo run --example playtest -- --watch --tier novice
+cargo run --example playtest -- --watch --tier casual
+cargo run --example playtest -- --watch --tier skilled --weapon melee
+cargo run --example playtest -- --watch --tier expert --seeds 2
+```
+
+Your own keys and mouse still work in that window and mix with the bot's
+input, so keep hands off to see the bot alone. The simulation runs on the same
+fixed 60 Hz tick as the headless report, but input is sampled per frame, so a
+watched run is not tick-for-tick identical to the headless one.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for plugins, messages and schedule order.
 

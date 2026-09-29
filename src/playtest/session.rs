@@ -50,6 +50,7 @@ pub fn play(config: SessionConfig) -> SessionLog {
         .add_plugins(PlaytestBotPlugin {
             tier: config.tier,
             seed: config.seed,
+            weapon: None,
         })
         .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(
             1.0 / FIXED_HZ,

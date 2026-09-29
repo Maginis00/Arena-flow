@@ -5,7 +5,7 @@
 use super::choices::{choose_weapon, reach, wants_pickup};
 use super::perception::{DelayedView, Rng, Snapshot};
 use super::steering::{dodge, eight_way, nearest, rotate, wall_push};
-use super::tier::{PickupPolicy, SkillTier, TierParams};
+use super::tier::{PickupPolicy, SkillTier, TierParams, WeaponPolicy};
 use crate::app_setup::api::{FIXED_HZ, SimSet};
 use crate::arena::api::ArenaBounds;
 use crate::combat::api::Health;
@@ -24,14 +24,20 @@ const PICKUP_SIDESTEP_RADIUS: f32 = 40.0;
 const CENTRE_DRIFT: f32 = 0.3;
 
 /// Plays the game at one skill tier. `seed` varies aim wobble between runs.
+/// `weapon` pins one weapon instead of the tier's own weapon policy.
 pub struct PlaytestBotPlugin {
     pub tier: SkillTier,
     pub seed: u32,
+    pub weapon: Option<WeaponKind>,
 }
 
 impl Plugin for PlaytestBotPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(Brain::new(self.tier.params(), self.seed))
+        let mut params = self.tier.params();
+        if let Some(weapon) = self.weapon {
+            params.weapon = WeaponPolicy::Fixed(weapon);
+        }
+        app.insert_resource(Brain::new(params, self.seed))
             .add_systems(FixedUpdate, (perceive, act).chain().in_set(SimSet::Intent));
     }
 }

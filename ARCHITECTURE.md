@@ -157,3 +157,8 @@ and writes `FireRequested` as the mouse would. It sees the world through a delay
 line of snapshots (reaction time). Pure parts are split out and unit-tested:
 `steering` (dodge, wall push, eight-way snapping), `choices` (pickup judgement,
 weapon choice), `perception` (delay line, deterministic rng) and `summary`.
+
+`playtest::watch` is the windowed counterpart of `play`: `DefaultPlugins`, all
+of `FlowArenaPlugins` (debug_render included), the same `PlaytestBotPlugin` at
+real-time speed, and a small bottom-left label (tier, weapon, next difficulty,
+last director reason) registered by its own `WatchLabelPlugin`.
