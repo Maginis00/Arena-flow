@@ -1,0 +1,4 @@
+# Cap parallel compile jobs: a full Bevy build with one job per core ran a
+# 16 GB machine out of memory.
+[build]
+jobs = 3

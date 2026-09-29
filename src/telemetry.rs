@@ -28,6 +28,7 @@ impl Plugin for TelemetryPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Telemetry>()
             .init_resource::<api::SessionRecord>()
+            .init_resource::<api::SessionFileEnabled>()
             .init_resource::<record::Recorder>()
             .init_resource::<record_file::SessionFile>()
             .add_systems(

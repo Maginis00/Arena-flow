@@ -2,19 +2,28 @@
 //! director's response is printed as Markdown tables, overall and per weapon.
 //!
 //! ```sh
-//! cargo run --release --example playtest
-//! cargo run --release --example playtest -- --minutes 20 --seeds 3 --tier expert
-//! cargo run --release --example playtest -- --weapon melee --weapon hitscan
-//! cargo run --release --example playtest -- --matrix   # every tier x every weapon
-//! cargo run --release --example playtest -- --human       # add your own sessions
-//! cargo run --release --example playtest -- --human-only  # only your own sessions
+//! cargo run --example playtest
+//! cargo run --example playtest -- --minutes 20 --seeds 3 --tier expert
+//! cargo run --example playtest -- --weapon melee --weapon hitscan
+//! cargo run --example playtest -- --matrix   # every tier x every weapon
+//! cargo run --example playtest -- --human       # add your own sessions
+//! cargo run --example playtest -- --human-only  # only your own sessions
 //! ```
 //!
 //! Your sessions are the files the game writes to `playtests/` when you play
 //! it in a window (`cargo run`), one file per launch.
+//!
+//! `--watch` instead opens the game window and lets one bot play in real time
+//! (the first `--tier`, default expert; the first `--weapon`, if any; `--seeds N`
+//! picks the seed). Without `--release` the debug overlay is shown too.
+//!
+//! ```sh
+//! cargo run --example playtest -- --watch --tier skilled --weapon melee
+//! ```
 
 use flow_arena::playtest::{
-    Named, SessionConfig, SkillTier, Summary, pickup_table, play, table, weapon_table,
+    Named, SessionConfig, SkillTier, Summary, WatchConfig, pickup_table, play, table, watch,
+    weapon_table,
 };
 use flow_arena::telemetry::api::{SESSION_DIR, SessionRecord, WEAPONS, read_session_file};
 use flow_arena::weapons::api::WeaponKind;
@@ -23,7 +32,8 @@ use std::process::ExitCode;
 use std::thread;
 
 const USAGE: &str = "usage: playtest [--minutes N] [--seeds N] [--tier NAME]... \
-                     [--weapon projectile|hitscan|melee]... [--matrix] [--human] [--human-only]";
+                     [--weapon projectile|hitscan|melee]... [--matrix] [--human] [--human-only]\n       \
+                     playtest --watch [--tier NAME] [--seeds N] [--weapon NAME]";
 
 struct Args {
     minutes: f32,
@@ -33,6 +43,7 @@ struct Args {
     weapons: Vec<Option<WeaponKind>>,
     human: bool,
     bots: bool,
+    watch: bool,
 }
 
 fn parse_weapon(name: &str) -> Result<WeaponKind, String> {
@@ -54,6 +65,7 @@ fn parse(mut raw: impl Iterator<Item = String>) -> Result<Args, String> {
         weapons: Vec::new(),
         human: false,
         bots: true,
+        watch: false,
     };
     while let Some(flag) = raw.next() {
         let mut value = || raw.next().ok_or_else(|| format!("{flag} needs a value"));
@@ -67,13 +79,18 @@ fn parse(mut raw: impl Iterator<Item = String>) -> Result<Args, String> {
             "--matrix" => {
                 args.weapons = std::iter::once(None).chain(WEAPONS.map(Some)).collect();
             }
+            "--watch" => args.watch = true,
             "--human" => args.human = true,
             "--human-only" => (args.human, args.bots) = (true, false),
             other => return Err(format!("unknown argument {other:?}")),
         }
     }
     if args.tiers.is_empty() {
-        args.tiers = SkillTier::ALL.to_vec();
+        args.tiers = if args.watch {
+            vec![SkillTier::Expert]
+        } else {
+            SkillTier::ALL.to_vec()
+        };
     }
     if args.weapons.is_empty() {
         args.weapons.push(None);
@@ -89,6 +106,18 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
+    if args.watch {
+        let config = WatchConfig {
+            tier: args.tiers.first().copied().unwrap_or(SkillTier::Expert),
+            seed: args.seeds.max(1),
+            weapon: args.weapons.iter().find_map(|w| *w),
+        };
+        return if watch(config).is_success() {
+            ExitCode::SUCCESS
+        } else {
+            ExitCode::FAILURE
+        };
+    }
     let humans = if args.human {
         match human_sessions() {
             Ok(found) => found,

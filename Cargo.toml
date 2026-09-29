@@ -16,6 +16,13 @@ serde_json = "1"
 # Keep our code fast to compile but make dependencies fast at runtime.
 [profile.dev]
 opt-level = 1
+# Full debug info for Bevy makes linking the biggest memory spike; line tables
+# still give file:line in backtraces.
+debug = "line-tables-only"
 
 [profile.dev.package."*"]
 opt-level = 3
+
+# Stated explicitly so nobody turns on LTO casually: it multiplies link memory.
+[profile.release]
+lto = false
