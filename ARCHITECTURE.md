@@ -30,9 +30,11 @@ src/
   waves.rs          waves/api.rs            the plugin and its system order
                     waves/machine.rs        phase, wave in play, running stats
                     waves/measure.rs        counting facts during a wave
+                    waves/danger.rs         how near enemies came, every tick (+ tests)
                     waves/transitions.rs    phase changes, reports, next wave
   flow_director.rs  flow_director/api.rs    the ECS side: state and two systems
                     flow_director/decide.rs the pure decision (+ tests)
+                    flow_director/curve.rs  engagement on the flow curve (pure + tests)
   telemetry.rs      telemetry/api.rs        snapshot + debug overlay
   debug_render.rs   debug_render/api.rs     boxes, border, shot flashes
 ```
@@ -75,7 +77,7 @@ and read with `MessageReader`. There are no observers in this slice.
 | `PlayerSpawned` | player | player `spawn_player`, `respawn_on_wave_start` | waves `record_director`, `track_hp`, telemetry |
 | `WeaponSwitched` | weapons | weapons `announce_initial`, `apply_selection` | telemetry |
 | `ShotFired` | weapons | weapons `fire` | combat `resolve_instant_shots`, waves `measure`, debug_render `draw_flashes` |
-| `Hit` | combat | combat `detect_projectile_hits`, `resolve_instant_shots`; enemies `contact_damage` | combat `apply_hits`, waves `measure` (shots_hit) |
+| `Hit` | combat | combat `detect_projectile_hits`, `resolve_instant_shots`; enemies `contact_damage` | combat `apply_hits`, waves `measure` (shots_hit), `measure_danger` (contact hits) |
 | `HealGranted` | combat | pickups `collect` | combat `apply_heals` |
 | `PlayerHealed` | combat | combat `apply_heals` | waves `track_hp`, telemetry |
 | `PlayerDamaged` | combat | combat `apply_hits` | waves `track_hp`, `measure`, telemetry |
@@ -117,7 +119,7 @@ Notes:
 | 3 | `Movement` | player `move_player`, enemies `chase_player`, weapons `move_projectiles` |
 | 4 | `Detect` | combat `detect_projectile_hits`, `resolve_instant_shots`; enemies `contact_damage`; pickups `collect` |
 | 5 | `Resolve` | combat `apply_heals` then `apply_hits` |
-| 6 | `Progress` | waves `record_director` then `track_hp` then `measure` then `advance` |
+| 6 | `Progress` | waves `record_director` then `track_hp` then `measure` then `measure_danger` then `advance` |
 | 7 | `Direct` | flow_director `adjust_after_wave` |
 | 8 | `Cleanup` | arena `despawn_outside`, enemies `clear_on_wave_end`, player `despawn_on_death` then `respawn_on_wave_start`, pickups `clear_on_death` then `tick_effects` |
 
@@ -147,8 +149,20 @@ pure and unit-tested (`cargo test`). The system around it only reads
 levers: enemy count, enemy speed, enemy contact damage. `Difficulty` counts
 quarter steps from 1.0 to 10.0. The decision reads the wave's risk
 (`wave_risk`: share of the wave's starting hp lost, 1 on death), smooths it in
-`DirectorMemory`, and steps down faster than up. The decision applies
+`DirectorMemory`, and steers it into a band around the peak of the flow curve
+(`flow_director::engagement`, after `design/risk-flow-curve.png`: engagement
+rises in a line to the peak at half the hp at stake, then falls steeply). A
+death steps down further than a safe wave steps up. The decision applies
 to the next wave only, because waves reads the levers when that wave starts.
+
+The curve reads mechanical pressure only (hp at stake). Decisions and reading
+enemies don't show up in it.
+
+Waves also report `Danger`, measured every tick from positions in
+`waves::danger`: close calls (an enemy nearly touched and left without a
+contact hit), approaches that hit, seconds under threat and calm seconds,
+peak crowd and the closest approach. The director doesn't steer on it yet;
+the playtest report shows it next to the risk.
 
 ## Playtest bots (playtest)
 
@@ -161,6 +175,14 @@ and writes `FireRequested` as the mouse would. It sees the world through a delay
 line of snapshots (reaction time). Pure parts are split out and unit-tested:
 `steering` (dodge, wall push, eight-way snapping), `choices` (pickup judgement,
 weapon choice), `perception` (delay line, deterministic rng) and `summary`.
+
+`playtest::play` runs one session; the example runs many side by side, one
+worker per core, and each session's schedules run single-threaded so the
+workers don't fight over Bevy's shared task pool. `--pin LEVEL` / `--sweep`
+replace the director with `DirectorConfig::pinned()` at a fixed difficulty, and
+`--jsonl DIR` saves every bot session in the session file format for analysis.
+The report opens with a flow table: each wave's risk on the flow curve
+(flow score = mean engagement; in flow, bored and overwhelmed shares).
 
 `playtest::watch` is the windowed counterpart of `play`: `DefaultPlugins`, all
 of `FlowArenaPlugins` (debug_render included), the same `PlaytestBotPlugin` at

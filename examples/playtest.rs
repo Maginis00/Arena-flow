@@ -36,8 +36,8 @@
 
 use flow_arena::flow_director::api::Difficulty;
 use flow_arena::playtest::{
-    Named, Quadrant, SessionConfig, SkillTier, Summary, WatchConfig, pickup_table, play, table,
-    watch, weapon_table,
+    Named, Quadrant, SessionConfig, SkillTier, Summary, WatchConfig, flow_table, pickup_table,
+    play, table, watch, weapon_table,
 };
 use flow_arena::telemetry::api::{
     SESSION_DIR, SessionRecord, WEAPONS, read_session_file, save_session,
@@ -230,6 +230,9 @@ fn main() -> ExitCode {
     if args.bots {
         println!("{} simulated minutes per bot\n", args.minutes);
     }
+    println!("Flow (each wave's hp at stake on the flow curve; mechanical pressure only):\n");
+    println!("{}", flow_table(&named));
+    println!("Director and play:\n");
     println!("{}", table(&named));
     println!("Per weapon (held = share of wave time; damage and deaths count while holding it):\n");
     println!("{}", weapon_table(&named));

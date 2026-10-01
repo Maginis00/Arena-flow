@@ -2,10 +2,14 @@
 //!
 //! The decision itself is [`decide`], a pure function. The systems here only
 //! do IO: read the report, call `decide`, store memory, write the result.
+//! [`engagement`] places a wave's risk on the flow curve; the director's band
+//! sits around its peak, and the playtest report scores sessions with it.
 
 pub mod api;
+mod curve;
 mod decide;
 
+pub use curve::{FLOW_PEAK, IN_FLOW, engagement};
 pub use decide::{Decision, DirectorConfig, DirectorMemory, decide, levers_for, wave_risk};
 
 use crate::app_setup::api::SimSet;
