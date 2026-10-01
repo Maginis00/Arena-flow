@@ -167,6 +167,11 @@ of `FlowArenaPlugins` (debug_render included), the same `PlaytestBotPlugin` at
 real-time speed, and a small bottom-left label (tier, weapon, next difficulty,
 last director reason) registered by its own `WatchLabelPlugin`. It sets `SessionFileEnabled(false)`, so watching a
 bot never writes a session file that would later read as your own.
+With `WatchConfig::quadrant` set, the window starts hidden and frameless and
+`place_in_quadrant` moves it into that quarter of the primary monitor's work
+area once winit reports the monitor (`tiling` splits the area, pure + tests;
+`work_area` asks Windows for it and falls back to the whole monitor
+elsewhere). The example's `--watch-all` starts one such process per tier.
 
 ## Session record (telemetry)
 

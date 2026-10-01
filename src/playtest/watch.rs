@@ -1,14 +1,19 @@
 //! Watch one bot play in the normal game window at real-time speed: the same
 //! game plugins and bot as a headless session, plus a label saying who plays
-//! and what the director just decided.
+//! and what the director just decided. With a quadrant set, the window drops
+//! its frame and fills that quarter of the primary monitor's work area, so
+//! four bots can be watched side by side.
 
 use super::bot::PlaytestBotPlugin;
 use super::tier::{SkillTier, WeaponPolicy};
+use super::tiling::Quadrant;
+use super::work_area::primary_work_area;
 use crate::FlowArenaPlugins;
 use crate::flow_director::api::{DecisionReason, Difficulty, DifficultyAdjusted};
 use crate::telemetry::api::SessionFileEnabled;
 use crate::weapons::api::WeaponKind;
 use bevy::prelude::*;
+use bevy::window::{Monitor, PrimaryMonitor, PrimaryWindow, WindowPosition};
 
 /// Who to watch.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -17,6 +22,8 @@ pub struct WatchConfig {
     pub seed: u32,
     /// Pins one weapon instead of the tier's weapon policy.
     pub weapon: Option<WeaponKind>,
+    /// Fill this quarter of the screen instead of a normal 1280x720 window.
+    pub quadrant: Option<Quadrant>,
 }
 
 /// Open the game window with a bot at the controls; returns when it closes.
@@ -30,6 +37,10 @@ pub fn watch(config: WatchConfig) -> AppExit {
             primary_window: Some(Window {
                 title: format!("flow_arena: {} bot", config.tier),
                 resolution: (1280, 720).into(),
+                // A tile has no frame, so the four tile the screen exactly. It
+                // stays hidden until `place_in_quadrant` has moved it.
+                decorations: config.quadrant.is_none(),
+                visible: config.quadrant.is_none(),
                 ..default()
             }),
             ..default()
@@ -55,6 +66,12 @@ impl Plugin for WatchLabelPlugin {
         })
         .add_systems(Startup, spawn_label)
         .add_systems(Update, update_label);
+        if let Some(quadrant) = self.0.quadrant {
+            app.insert_resource(Placement(quadrant)).add_systems(
+                Update,
+                place_in_quadrant.run_if(resource_exists::<Placement>),
+            );
+        }
     }
 }
 
@@ -108,4 +125,32 @@ fn update_label(
             c.tier, c.seed
         );
     }
+}
+
+/// The quadrant the window still has to move to; removed once it has.
+#[derive(Resource, Debug)]
+struct Placement(Quadrant);
+
+/// Moves the window into its quadrant once the primary monitor is known
+/// (winit reports monitors only after the event loop starts), then shows it.
+fn place_in_quadrant(
+    mut commands: Commands,
+    placement: Res<Placement>,
+    monitor: Option<Single<&Monitor, With<PrimaryMonitor>>>,
+    window: Option<Single<&mut Window, With<PrimaryWindow>>>,
+) {
+    let (Some(monitor), Some(mut window)) = (monitor, window) else {
+        return;
+    };
+    let whole = IRect::from_corners(
+        monitor.physical_position,
+        monitor.physical_position + monitor.physical_size().as_ivec2(),
+    );
+    let area = primary_work_area().unwrap_or(whole);
+    let tile = placement.0.rect(area);
+    let size = tile.size().max(IVec2::ONE).as_uvec2();
+    window.position = WindowPosition::At(tile.min);
+    window.resolution.set_physical_resolution(size.x, size.y);
+    window.visible = true;
+    commands.remove_resource::<Placement>();
 }

@@ -20,20 +20,31 @@
 //! ```sh
 //! cargo run --example playtest -- --watch --tier skilled --weapon melee
 //! ```
+//!
+//! `--watch-all` opens one window per tier (or per `--tier` given, at most
+//! four), each a separate process of this same binary filling one quarter of
+//! the primary monitor's work area: novice top left, casual top right, skilled
+//! bottom left, expert bottom right. Close them all with Ctrl+C in the
+//! terminal, or one at a time with Alt+F4.
+//!
+//! ```sh
+//! cargo run --example playtest -- --watch-all
+//! ```
 
 use flow_arena::playtest::{
-    Named, SessionConfig, SkillTier, Summary, WatchConfig, pickup_table, play, table, watch,
-    weapon_table,
+    Named, Quadrant, SessionConfig, SkillTier, Summary, WatchConfig, pickup_table, play, table,
+    watch, weapon_table,
 };
 use flow_arena::telemetry::api::{SESSION_DIR, SessionRecord, WEAPONS, read_session_file};
 use flow_arena::weapons::api::WeaponKind;
 use std::path::PathBuf;
-use std::process::ExitCode;
+use std::process::{Command, ExitCode};
 use std::thread;
 
 const USAGE: &str = "usage: playtest [--minutes N] [--seeds N] [--tier NAME]... \
                      [--weapon projectile|hitscan|melee]... [--matrix] [--human] [--human-only]\n       \
-                     playtest --watch [--tier NAME] [--seeds N] [--weapon NAME]";
+                     playtest --watch [--tier NAME] [--seeds N] [--weapon NAME] [--quadrant NAME]\n       \
+                     playtest --watch-all [--tier NAME]... [--seeds N] [--weapon NAME]";
 
 struct Args {
     minutes: f32,
@@ -44,6 +55,8 @@ struct Args {
     human: bool,
     bots: bool,
     watch: bool,
+    watch_all: bool,
+    quadrant: Option<Quadrant>,
 }
 
 fn parse_weapon(name: &str) -> Result<WeaponKind, String> {
@@ -66,6 +79,8 @@ fn parse(mut raw: impl Iterator<Item = String>) -> Result<Args, String> {
         human: false,
         bots: true,
         watch: false,
+        watch_all: false,
+        quadrant: None,
     };
     while let Some(flag) = raw.next() {
         let mut value = || raw.next().ok_or_else(|| format!("{flag} needs a value"));
@@ -80,10 +95,15 @@ fn parse(mut raw: impl Iterator<Item = String>) -> Result<Args, String> {
                 args.weapons = std::iter::once(None).chain(WEAPONS.map(Some)).collect();
             }
             "--watch" => args.watch = true,
+            "--watch-all" => args.watch_all = true,
+            "--quadrant" => args.quadrant = Some(value()?.parse()?),
             "--human" => args.human = true,
             "--human-only" => (args.human, args.bots) = (true, false),
             other => return Err(format!("unknown argument {other:?}")),
         }
+    }
+    if args.watch_all && args.tiers.len() > Quadrant::ALL.len() {
+        return Err("--watch-all shows at most four tiers".to_owned());
     }
     if args.tiers.is_empty() {
         args.tiers = if args.watch {
@@ -106,11 +126,15 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
+    if args.watch_all {
+        return watch_all(&args);
+    }
     if args.watch {
         let config = WatchConfig {
             tier: args.tiers.first().copied().unwrap_or(SkillTier::Expert),
             seed: args.seeds.max(1),
             weapon: args.weapons.iter().find_map(|w| *w),
+            quadrant: args.quadrant,
         };
         return if watch(config).is_success() {
             ExitCode::SUCCESS
@@ -182,6 +206,51 @@ fn main() -> ExitCode {
         println!("- {name}: {}", Summary::of(log).trajectory);
     }
     ExitCode::SUCCESS
+}
+
+/// Starts one `--watch` process of this binary per tier, each in its own
+/// quadrant, and waits for all of them. Separate processes rather than
+/// windows of one app: each bot keeps its own world, clock and seed, exactly
+/// as in a single `--watch`.
+fn watch_all(args: &Args) -> ExitCode {
+    let exe = match std::env::current_exe() {
+        Ok(exe) => exe,
+        Err(e) => {
+            eprintln!("cannot find this program to start the bots: {e}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let mut children = Vec::new();
+    for (tier, quadrant) in args.tiers.iter().zip(Quadrant::ALL) {
+        let mut command = Command::new(&exe);
+        command.args(["--watch", "--tier", &tier.to_string()]);
+        command.args(["--quadrant", &quadrant.to_string()]);
+        command.args(["--seeds", &args.seeds.max(1).to_string()]);
+        if let Some(weapon) = args.weapons.iter().find_map(|w| *w) {
+            // Display says "melee arc"; pass the name `parse_weapon` reads.
+            let name = match weapon {
+                WeaponKind::Projectile => "projectile",
+                WeaponKind::Hitscan => "hitscan",
+                WeaponKind::Melee => "melee",
+            };
+            command.args(["--weapon", name]);
+        }
+        match command.spawn() {
+            Ok(child) => children.push(child),
+            Err(e) => eprintln!("could not start the {tier} bot: {e}"),
+        }
+    }
+    let started = children.len();
+    let ok = children
+        .into_iter()
+        .filter_map(|mut child| child.wait().ok())
+        .filter(|status| status.success())
+        .count();
+    if started == args.tiers.len() && ok == started {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
+    }
 }
 
 /// Every session file in `playtests/`, oldest first, named "you: <file>".
