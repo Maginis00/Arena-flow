@@ -132,9 +132,16 @@ fn run(args: &[String]) -> Result<String, String> {
                 .filter(|v| (-2..=2).contains(v))
                 .ok_or("feel needs a value from -2 (bored) to 2 (overwhelmed)")?;
             let note = command[2..].join(" ").replace('\n', " ");
-            let waves = replay(run.hands, &run.orders, &[]).record.waves.len();
+            let record = replay(run.hands, &run.orders, &[]).record;
+            let Some(last) = record.waves.last() else {
+                return Err("no wave has ended yet".into());
+            };
+            let waves = record.waves.len();
             run.append(&[format!("{FEEL_PREFIX}{waves} {value} {note}")])?;
-            Ok(format!("noted for wave {waves}: {value:+} {note}\n"))
+            Ok(format!(
+                "noted for wave {} try {}: {value:+} {note}\n",
+                last.report.index, last.report.attempt
+            ))
         }
         _ => {
             let run = Run::load(dir)?;
