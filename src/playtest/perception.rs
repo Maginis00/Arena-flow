@@ -8,6 +8,10 @@ use std::collections::VecDeque;
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Snapshot {
     pub enemies: Vec<Vec2>,
+    /// Enemies worth shooting first (summoners), also listed in `enemies`.
+    pub priority: Vec<Vec2>,
+    /// Enemy bolts in flight.
+    pub bolts: Vec<Vec2>,
     pub pickups: Vec<(Vec2, PickupKind)>,
 }
 
@@ -73,7 +77,7 @@ mod tests {
     fn with_enemy(x: f32) -> Snapshot {
         Snapshot {
             enemies: vec![Vec2::new(x, 0.0)],
-            pickups: Vec::new(),
+            ..Snapshot::default()
         }
     }
 

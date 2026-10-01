@@ -30,7 +30,7 @@ pub(super) fn advance(
             let stats = &machine.stats;
             machine.phase = if stats.player_died {
                 WavePhase::Cleared(Outcome::Failed)
-            } else if stats.enemies_spawned < spec.enemy_count {
+            } else if stats.queued_spawned < spec.enemy_count {
                 WavePhase::Spawning
             } else if stats.enemies_killed >= stats.enemies_spawned {
                 WavePhase::Cleared(Outcome::Cleared)

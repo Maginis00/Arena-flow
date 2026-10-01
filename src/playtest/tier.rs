@@ -44,6 +44,8 @@ pub struct TierParams {
     pub avoids_walls: bool,
     /// Only fires when the target is within the weapon's reach.
     pub trigger_discipline: bool,
+    /// Shoots a summoner in reach before the nearest enemy.
+    pub focuses_priority: bool,
     pub pickups: PickupPolicy,
     /// How far the bot will walk for a pickup.
     pub pickup_reach: f32,
@@ -73,6 +75,7 @@ impl SkillTier {
                 strafe: 0.0,
                 avoids_walls: false,
                 trigger_discipline: false,
+                focuses_priority: false,
                 pickups: PickupPolicy::Ignore,
                 pickup_reach: 0.0,
                 weapon: WeaponPolicy::Fixed(WeaponKind::Projectile),
@@ -85,6 +88,7 @@ impl SkillTier {
                 strafe: 0.3,
                 avoids_walls: false,
                 trigger_discipline: false,
+                focuses_priority: false,
                 pickups: PickupPolicy::Greedy,
                 pickup_reach: 200.0,
                 weapon: WeaponPolicy::Fixed(WeaponKind::Projectile),
@@ -97,6 +101,7 @@ impl SkillTier {
                 strafe: 0.7,
                 avoids_walls: true,
                 trigger_discipline: true,
+                focuses_priority: true,
                 pickups: PickupPolicy::Weighed,
                 pickup_reach: 300.0,
                 weapon: WeaponPolicy::Fixed(WeaponKind::Hitscan),
@@ -109,6 +114,7 @@ impl SkillTier {
                 strafe: 1.0,
                 avoids_walls: true,
                 trigger_discipline: true,
+                focuses_priority: true,
                 pickups: PickupPolicy::Weighed,
                 pickup_reach: 400.0,
                 weapon: WeaponPolicy::Situational,

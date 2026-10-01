@@ -31,7 +31,11 @@ pub(super) enum WavePhase {
 #[derive(Debug, Clone, Default)]
 pub(super) struct WaveStats {
     pub(super) duration_secs: f32,
+    /// Every enemy that entered, summoned ones included.
     pub(super) enemies_spawned: u32,
+    /// Enemies from the wave's own count; the wave is spawning until these
+    /// reach `WaveSpec::enemy_count`.
+    pub(super) queued_spawned: u32,
     pub(super) enemies_killed: u32,
     pub(super) damage_taken: u32,
     pub(super) hits_taken: u32,
