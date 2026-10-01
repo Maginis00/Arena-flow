@@ -24,6 +24,7 @@ src/
   weapons.rs        weapons/api.rs          selection, cooldowns, shots
   combat.rs         combat/api.rs           hit detection and resolution
   enemies.rs        enemies/api.rs          spawning, chasing, contact damage
+                    enemies/placement.rs    spawn point outside the safe radius (+ tests)
   pickups.rs        pickups/api.rs          drops, collection, effect timers
                     pickups/table.rs        what each pickup does (pure + tests)
   waves.rs          waves/api.rs            the plugin and its system order
@@ -166,6 +167,12 @@ of `FlowArenaPlugins` (debug_render included), the same `PlaytestBotPlugin` at
 real-time speed, and a small bottom-left label (tier, weapon, next difficulty,
 last director reason) registered by its own `WatchLabelPlugin`. It sets `SessionFileEnabled(false)`, so watching a
 bot never writes a session file that would later read as your own.
+With `WatchConfig::quadrant` set, the window starts hidden and frameless and
+`place_in_quadrant` moves it into that quarter of the primary monitor's work
+area once winit reports the monitor (`tiling` splits the area, pure + tests;
+`work_area` asks Windows for it and falls back to the whole monitor
+elsewhere). A tile sets `OverlayEnabled(false)` and its label shrinks to
+tier, wave and difficulty. The example's `--watch-all` starts one such process per tier.
 
 ## Session record (telemetry)
 

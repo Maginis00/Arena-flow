@@ -20,6 +20,17 @@ impl Default for SessionFileEnabled {
     }
 }
 
+/// Whether a debug build shows the telemetry overlay. True by default; the
+/// four-window bot watch turns it off, where the windows are too small for it.
+#[derive(Resource, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct OverlayEnabled(pub bool);
+
+impl Default for OverlayEnabled {
+    fn default() -> Self {
+        Self(true)
+    }
+}
+
 /// Every weapon, in key order (1, 2, 3).
 pub const WEAPONS: [WeaponKind; 3] = [
     WeaponKind::Projectile,

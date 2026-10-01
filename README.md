@@ -16,6 +16,7 @@ cargo run --release  # play without the overlay
 cargo test           # unit tests + headless multi-wave runs (idle, aim-bot, playtest bots)
 cargo run --example playtest                    # playtest report for every skill tier
 cargo run --example playtest -- --watch --tier expert   # watch one bot play
+cargo run --example playtest -- --watch-all             # all four tiers, screen split in four
 ```
 
 The debug build is the everyday profile: our code at `opt-level = 1`,
@@ -143,6 +144,21 @@ Your own keys and mouse still work in that window and mix with the bot's
 input, so keep hands off to see the bot alone. The simulation runs on the same
 fixed 60 Hz tick as the headless report, but input is sampled per frame, so a
 watched run is not tick-for-tick identical to the headless one.
+
+`--watch-all` starts one watch window per tier, each its own process of the
+same binary, so it builds once and then only runs. The windows have no frame
+and fill the primary monitor's work area (the screen minus the taskbar) in
+four equal quarters: novice top left, casual top right, skilled bottom left,
+expert bottom right. Each shows only a small label (tier, wave, difficulty),
+no debug overlay. `--weapon` and `--seeds` apply to all four; `--tier`, up
+to four times, picks which tiers and in what order. Ctrl+C in the terminal
+closes them all, Alt+F4 closes the one in focus. Four windows take about
+2.7 GB of memory, so don't start them while a build is running.
+
+```sh
+cargo run --example playtest -- --watch-all
+cargo run --example playtest -- --watch-all --weapon melee
+```
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for plugins, messages and schedule order.
 

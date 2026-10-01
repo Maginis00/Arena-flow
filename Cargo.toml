@@ -13,6 +13,12 @@ thiserror = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
+# The work area (screen minus taskbar) for tiling watched bots
+# (playtest/work_area.rs). Same version and a subset of the features winit
+# already builds, so it adds nothing to compile.
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.52", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging"] }
+
 # Keep our code fast to compile but make dependencies fast at runtime.
 [profile.dev]
 opt-level = 1

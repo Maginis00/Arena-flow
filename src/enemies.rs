@@ -1,6 +1,7 @@
-//! Enemy spawning from a wave spec, chasing the player, and contact damage.
+//! Enemy spawning from a wave spec (outside a safe radius around the player), chasing the player, and contact damage.
 
 pub mod api;
+mod placement;
 
 use crate::app_setup::api::SimSet;
 use crate::arena::api::ArenaBounds;
@@ -21,6 +22,8 @@ const CONTACT_COOLDOWN_SECS: f32 = 0.75;
 /// Spawn positions walk the perimeter by the golden ratio so consecutive
 /// enemies are spread out deterministically (no RNG in the harness).
 const SPAWN_STEP: f32 = 0.618_034;
+/// PLACEHOLDER: enemies never appear closer than this to the player.
+const SPAWN_SAFE_RADIUS: f32 = 200.0;
 
 pub struct EnemiesPlugin;
 
@@ -73,6 +76,7 @@ fn spawn_from_queue(
     mut commands: Commands,
     time: Res<Time>,
     bounds: Res<ArenaBounds>,
+    player: Option<Single<&Transform, With<Player>>>,
     mut queue: ResMut<SpawnQueue>,
     mut spawned: MessageWriter<EnemySpawned>,
 ) {
@@ -92,7 +96,9 @@ fn spawn_from_queue(
 
     // u32 -> f32 loses precision only past 2^24 spawns; fine for a spread pattern.
     let t = queue.spawn_cursor as f32 * SPAWN_STEP;
-    let at = bounds.perimeter_point(t, ENEMY_HALF_SIZE * 2.0);
+    let candidate = bounds.perimeter_point(t, ENEMY_HALF_SIZE * 2.0);
+    let player_at = player.map(|p| p.translation.truncate());
+    let at = placement::spawn_point(candidate, player_at, SPAWN_SAFE_RADIUS);
     let enemy = commands
         .spawn((
             Enemy,
