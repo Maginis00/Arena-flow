@@ -29,6 +29,7 @@ impl Plugin for TelemetryPlugin {
         app.init_resource::<Telemetry>()
             .init_resource::<api::SessionRecord>()
             .init_resource::<api::SessionFileEnabled>()
+            .init_resource::<api::OverlayEnabled>()
             .init_resource::<record::Recorder>()
             .init_resource::<record_file::SessionFile>()
             .add_systems(
@@ -39,7 +40,7 @@ impl Plugin for TelemetryPlugin {
                 ),
             );
         if cfg!(debug_assertions) {
-            app.add_systems(Startup, spawn_overlay)
+            app.add_systems(Startup, spawn_overlay.run_if(overlay_enabled))
                 .add_systems(Update, render_overlay.after(collect));
         }
     }
@@ -64,6 +65,10 @@ struct Telemetry {
 
 #[derive(Component)]
 struct OverlayText;
+
+fn overlay_enabled(enabled: Res<api::OverlayEnabled>) -> bool {
+    enabled.0
+}
 
 fn spawn_overlay(mut commands: Commands) {
     commands.spawn((

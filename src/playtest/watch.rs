@@ -10,7 +10,8 @@ use super::tiling::Quadrant;
 use super::work_area::primary_work_area;
 use crate::FlowArenaPlugins;
 use crate::flow_director::api::{DecisionReason, Difficulty, DifficultyAdjusted};
-use crate::telemetry::api::SessionFileEnabled;
+use crate::telemetry::api::{OverlayEnabled, SessionFileEnabled};
+use crate::waves::api::{WaveIndex, WaveStarted};
 use crate::weapons::api::WeaponKind;
 use bevy::prelude::*;
 use bevy::window::{Monitor, PrimaryMonitor, PrimaryWindow, WindowPosition};
@@ -51,6 +52,8 @@ pub fn watch(config: WatchConfig) -> AppExit {
             seed: config.seed,
         })
         .insert_resource(SessionFileEnabled(false))
+        // A quarter screen has room for the bot's label only.
+        .insert_resource(OverlayEnabled(config.quadrant.is_none()))
         .add_plugins(WatchLabelPlugin(config))
         .run()
 }
@@ -63,6 +66,7 @@ impl Plugin for WatchLabelPlugin {
             config: self.0,
             difficulty: None,
             reason: None,
+            wave: None,
         })
         .add_systems(Startup, spawn_label)
         .add_systems(Update, update_label);
@@ -80,35 +84,64 @@ struct Watched {
     config: WatchConfig,
     difficulty: Option<Difficulty>,
     reason: Option<DecisionReason>,
+    /// The wave in play and the difficulty it runs at (the compact label).
+    wave: Option<(WaveIndex, Difficulty)>,
 }
 
 #[derive(Component)]
 struct WatchLabel;
 
-fn spawn_label(mut commands: Commands) {
-    // Bottom left, clear of the debug overlay in the top left.
-    commands.spawn((
-        WatchLabel,
-        Text::new(""),
-        Node {
+/// PLACEHOLDER: font size of the compact label in a quarter-screen window.
+const COMPACT_FONT_SIZE: f32 = 14.0;
+
+fn spawn_label(mut commands: Commands, watched: Res<Watched>) {
+    let mut label = commands.spawn((WatchLabel, Text::new("")));
+    if watched.config.quadrant.is_some() {
+        // No overlay in a tile: a small label in the top left is all there is.
+        label.insert((
+            TextFont::from_font_size(COMPACT_FONT_SIZE),
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::Px(8.0),
+                top: Val::Px(4.0),
+                ..default()
+            },
+        ));
+    } else {
+        // Bottom left, clear of the debug overlay in the top left.
+        label.insert(Node {
             position_type: PositionType::Absolute,
             left: Val::Px(12.0),
             bottom: Val::Px(8.0),
             ..default()
-        },
-    ));
+        });
+    }
 }
 
 fn update_label(
     mut watched: ResMut<Watched>,
     mut adjusted: MessageReader<DifficultyAdjusted>,
+    mut started: MessageReader<WaveStarted>,
     mut label: Query<&mut Text, With<WatchLabel>>,
 ) {
     if let Some(a) = adjusted.read().last() {
         watched.difficulty = Some(a.difficulty);
         watched.reason = Some(a.reason);
     }
+    if let Some(s) = started.read().last() {
+        watched.wave = Some((s.spec.index, s.spec.difficulty));
+    }
     let c = watched.config;
+    if c.quadrant.is_some() {
+        let wave = watched.wave.map_or_else(
+            || "-".to_owned(),
+            |(index, difficulty)| format!("{index}  difficulty {difficulty}"),
+        );
+        for mut text in &mut label {
+            text.0 = format!("{}  wave {wave}", c.tier);
+        }
+        return;
+    }
     let weapon = match (c.weapon, c.tier.params().weapon) {
         (Some(weapon), _) | (None, WeaponPolicy::Fixed(weapon)) => weapon.to_string(),
         (None, WeaponPolicy::Situational) => "situational".to_owned(),

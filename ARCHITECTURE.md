@@ -171,7 +171,8 @@ With `WatchConfig::quadrant` set, the window starts hidden and frameless and
 `place_in_quadrant` moves it into that quarter of the primary monitor's work
 area once winit reports the monitor (`tiling` splits the area, pure + tests;
 `work_area` asks Windows for it and falls back to the whole monitor
-elsewhere). The example's `--watch-all` starts one such process per tier.
+elsewhere). A tile sets `OverlayEnabled(false)` and its label shrinks to
+tier, wave and difficulty. The example's `--watch-all` starts one such process per tier.
 
 ## Session record (telemetry)
 
