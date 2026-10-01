@@ -14,20 +14,25 @@
 //!
 //! An order is words in any order, all optional: a direction (`n` `ne` `e`
 //! `se` `s` `sw` `w` `nw` `stop`) or `to X Y`; a weapon `1` `2` `3`;
-//! `fire nearest` (default), `fire densest`, `fire DEG` or `hold`; and
-//! `for SECS` (default 0.3, at most 3). Several orders split by `;` play back
-//! to back without a look in between. `feel N NOTE` rates the wave that just
-//! ended on the flow curve, -2 bored to +2 overwhelmed; `journal` prints every
-//! wave's numbers next to those ratings.
+//! `fire nearest` (default), `fire densest`, `fire DEG` or `hold`;
+//! `skill LEVEL` (0 to 3); and `for SECS` (default 0.3, at most 3). Several
+//! orders split by `;` play back to back without a look in between.
+//! `feel N NOTE` rates the wave that just ended on the flow curve, -2 bored
+//! to +2 overwhelmed; `journal` prints every wave's numbers next to those
+//! ratings.
 //!
-//! `start TIER` picks the hands (novice, casual, skilled, expert; default
-//! skilled): the bot tier whose reaction time and aim error carry out every
-//! `fire` order. The brain is the agent's; the hands are a bot's.
+//! `start TIER` picks the starting hands (novice, casual, skilled, expert, or a
+//! level from 0 to 3 in between; default skilled): the reaction time and aim
+//! error that carry out every `fire` order. The brain is the agent's; the hands
+//! are a bot's. The word `skill LEVEL` in an order changes the hands from then
+//! on, so a run can play a player who improves over time. The journal shows
+//! the skill and the pickups taken for every wave.
 
 use flow_arena::playtest::{Feel, Order, SkillTier, journal, render, replay};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
+use std::str::FromStr;
 
 const ORDERS_FILE: &str = "orders.txt";
 const FEEL_PREFIX: &str = "# feel ";
@@ -38,7 +43,8 @@ const USAGE: &str =
 /// The run so far: orders and the agent's ratings, from `DIR/orders.txt`.
 struct Run {
     file: PathBuf,
-    hands: SkillTier,
+    /// Starting hand skill, 0 novice to 3 expert.
+    hands: f32,
     orders: Vec<Order>,
     feels: Vec<Feel>,
 }
@@ -50,13 +56,13 @@ impl Run {
             .map_err(|e| format!("{}: {e} (start a run first)", file.display()))?;
         let mut run = Self {
             file,
-            hands: SkillTier::Skilled,
+            hands: SkillTier::Skilled.level(),
             orders: Vec::new(),
             feels: Vec::new(),
         };
         for (n, line) in text.lines().enumerate() {
             if let Some(tier) = line.strip_prefix(HANDS_PREFIX) {
-                run.hands = tier.parse()?;
+                run.hands = parse_skill(tier)?;
             } else if let Some(feel) = line.strip_prefix(FEEL_PREFIX) {
                 run.feels
                     .push(parse_feel(feel).map_err(|e| format!("line {}: {e}", n + 1))?);
@@ -76,6 +82,17 @@ impl Run {
         }
         fs::write(&self.file, text).map_err(|e| e.to_string())
     }
+}
+
+/// A tier name or a number from 0 (novice) to 3 (expert).
+fn parse_skill(text: &str) -> Result<f32, String> {
+    if let Ok(tier) = SkillTier::from_str(text) {
+        return Ok(tier.level());
+    }
+    text.parse::<f32>()
+        .ok()
+        .filter(|level| (0.0..=3.0).contains(level))
+        .ok_or_else(|| format!("hands: {text:?} is not a tier name or a level from 0 to 3"))
 }
 
 /// `AFTER VALUE NOTE...`, as written by `feel`.
@@ -105,8 +122,8 @@ fn run(args: &[String]) -> Result<String, String> {
     match command[0].as_str() {
         "start" => {
             let hands = match command.get(1) {
-                Some(tier) => tier.parse()?,
-                None => SkillTier::Skilled,
+                Some(level) => parse_skill(level)?,
+                None => SkillTier::Skilled.level(),
             };
             fs::create_dir_all(dir).map_err(|e| e.to_string())?;
             fs::write(dir.join(ORDERS_FILE), format!("{HANDS_PREFIX}{hands}\n"))
@@ -119,10 +136,8 @@ fn run(args: &[String]) -> Result<String, String> {
         }
         "journal" => {
             let run = Run::load(dir)?;
-            Ok(journal(
-                &replay(run.hands, &run.orders, &[]).record,
-                &run.feels,
-            ))
+            let played = replay(run.hands, &run.orders, &[]);
+            Ok(journal(&played.record, &played.wave_skills, &run.feels))
         }
         "feel" => {
             let run = Run::load(dir)?;

@@ -34,6 +34,14 @@ impl DelayedView {
         }
     }
 
+    /// Change the reaction time. A longer delay fills up from the frames kept.
+    pub fn set_delay(&mut self, delay_ticks: usize) {
+        self.delay_ticks = delay_ticks;
+        while self.buffer.len() > self.delay_ticks + 1 {
+            self.buffer.pop_front();
+        }
+    }
+
     /// The snapshot from `delay_ticks` ago (or the oldest one kept).
     pub fn seen(&self) -> Option<&Snapshot> {
         self.buffer.front()
@@ -84,6 +92,16 @@ mod tests {
             view.push(with_enemy(x as f32));
         }
         assert_eq!(view.seen(), Some(&with_enemy(2.0)));
+    }
+
+    #[test]
+    fn a_shorter_delay_sees_a_newer_frame_at_once() {
+        let mut view = DelayedView::new(3);
+        for x in 0..5 {
+            view.push(with_enemy(x as f32));
+        }
+        view.set_delay(1);
+        assert_eq!(view.seen(), Some(&with_enemy(3.0)));
     }
 
     #[test]

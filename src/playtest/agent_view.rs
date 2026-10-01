@@ -45,6 +45,8 @@ pub struct Frame {
     pub still_to_spawn: u32,
     /// Position, hp, max hp. `None` while dead.
     pub player: Option<(Vec2, u32, u32)>,
+    /// Hand skill, 0 novice to 3 expert.
+    pub skill: f32,
     pub weapon: WeaponKind,
     pub effects: Effects,
     pub enemies: Vec<Vec2>,
@@ -190,10 +192,11 @@ pub fn render(frame: &Frame) -> String {
         Some((at, hp, max)) => {
             let _ = writeln!(
                 out,
-                "you at ({:.0}, {:.0}) | hp {hp}/{max} | weapon {} | effects: {}",
+                "you at ({:.0}, {:.0}) | hp {hp}/{max} | weapon {} | hand skill {:.2} | effects: {}",
                 at.x,
                 at.y,
                 frame.weapon,
+                frame.skill,
                 effects_text(&frame.effects),
             );
         }
@@ -255,21 +258,28 @@ pub struct Feel {
     pub note: String,
 }
 
-/// One line per finished wave: the game's numbers next to the agent's feel.
-pub fn journal(record: &SessionRecord, feels: &[Feel]) -> String {
+/// One line per finished wave: the game's numbers next to the hand skill it
+/// was played with (`skills`, in record order) and the agent's feel.
+pub fn journal(record: &SessionRecord, skills: &[f32], feels: &[Feel]) -> String {
     let mut out = String::from(
-        "| wave | try | difficulty | secs | start hp | lowest hp | damage | died | risk | next | feel | note |\n\
-         |---|---|---|---|---|---|---|---|---|---|---|---|\n",
+        "| wave | try | skill | difficulty | secs | start hp | lowest hp | damage | died | risk | pickups (secs into wave, hp) | next | feel | note |\n\
+         |---|---|---|---|---|---|---|---|---|---|---|---|---|---|\n",
     );
     for (i, wave) in record.waves.iter().enumerate() {
         let r = &wave.report;
         let feel = feels.iter().rev().find(|f| f.after_waves == i + 1);
         let next = wave.decision.map_or(String::new(), |d| d.to_string());
+        let pickups: Vec<String> = wave
+            .pickups
+            .iter()
+            .map(|p| format!("{} {:.1}s {}hp", p.kind, p.at_secs, p.hp))
+            .collect();
         let _ = writeln!(
             out,
-            "| {} | {} | {:.2} | {:.1} | {} | {} | {} | {} | {:.2} | {next} | {} | {} |",
+            "| {} | {} | {} | {:.2} | {:.1} | {} | {} | {} | {} | {:.2} | {} | {next} | {} | {} |",
             r.index,
             r.attempt,
+            skills.get(i).map_or(String::new(), |s| format!("{s:.2}")),
             r.difficulty.level(),
             r.duration_secs,
             r.start_hp,
@@ -277,6 +287,7 @@ pub fn journal(record: &SessionRecord, feels: &[Feel]) -> String {
             r.damage_taken,
             if r.player_died { "yes" } else { "" },
             wave_risk(r),
+            pickups.join(", "),
             feel.map_or(String::new(), |f| format!("{:+}", f.value)),
             feel.map_or("", |f| f.note.as_str()),
         );

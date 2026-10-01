@@ -2,14 +2,16 @@
 //! so a run is just its list of orders: [`replay`] plays them from the start
 //! in a headless app and returns what the agent sees after the last one.
 //! The agent decides between steps, while the simulation is not running; its
-//! "hands" carry each order out with one bot tier's reaction time and aim.
+//! "hands" carry each order out with a reaction time and aim error taken from
+//! the bot tiers. The agent may change the hand skill during a run, to play a
+//! player who improves (or tires).
 
 use super::agent_order::{Aim, Move, Order};
 use super::agent_view::{FinishedWave, Frame, StepEvents};
 use super::choices::reach;
 use super::perception::{DelayedView, Rng, Snapshot};
 use super::steering::{eight_way, nearest, rotate};
-use super::tier::{SkillTier, TierParams};
+use super::tier::{HandSkill, hand_skill};
 use crate::FlowArenaPlugins;
 use crate::app_setup::api::{FIXED_HZ, SimSet};
 use crate::arena::api::ArenaBounds;
@@ -40,17 +42,19 @@ const HAND_SEED: u32 = 1;
 pub struct AgentRun {
     pub frame: Frame,
     pub record: SessionRecord,
+    /// Hand skill at the end of each finished wave, in record order.
+    pub wave_skills: Vec<f32>,
 }
 
 /// Play `earlier` orders silently, then `latest` while recording what
-/// happens; the returned frame describes only the `latest` part. `hands`
-/// sets the reaction time and aim error the orders are carried out with.
-pub fn replay(hands: SkillTier, earlier: &[Order], latest: &[Order]) -> AgentRun {
+/// happens; the returned frame describes only the `latest` part. `skill` is
+/// the starting hand skill (see [`hand_skill`]); orders may change it.
+pub fn replay(skill: f32, earlier: &[Order], latest: &[Order]) -> AgentRun {
     let orders: Vec<Order> = earlier.iter().chain(latest).copied().collect();
     let mut app = App::new();
     app.add_plugins((MinimalPlugins, InputPlugin))
         .add_plugins(FlowArenaPlugins.build().disable::<DebugRenderPlugin>())
-        .insert_resource(Hands::new(hands.params(), orders))
+        .insert_resource(Hands::new(skill, orders))
         .init_resource::<Watched>()
         .add_systems(FixedUpdate, act.in_set(SimSet::Intent))
         .add_systems(Update, watch)
@@ -87,7 +91,12 @@ pub fn replay(hands: SkillTier, earlier: &[Order], latest: &[Order]) -> AgentRun
         .world_mut()
         .remove_resource::<SessionRecord>()
         .unwrap_or_default();
-    AgentRun { frame, record }
+    let wave_skills = app.world().resource::<Watched>().wave_skills.clone();
+    AgentRun {
+        frame,
+        record,
+        wave_skills,
+    }
 }
 
 fn ticks(secs: f32) -> u32 {
@@ -101,7 +110,8 @@ struct Hands {
     index: usize,
     ticks_left: u32,
     started: bool,
-    params: TierParams,
+    skill: f32,
+    params: HandSkill,
     view: DelayedView,
     rng: Rng,
     until_wobble_secs: f32,
@@ -109,17 +119,17 @@ struct Hands {
 }
 
 impl Hands {
-    fn new(params: TierParams, orders: Vec<Order>) -> Self {
-        // Rounding a positive, small reaction time to whole ticks.
-        let delay = (params.reaction_secs * FIXED_HZ as f32).round().max(0.0) as usize;
+    fn new(skill: f32, orders: Vec<Order>) -> Self {
+        let params = hand_skill(skill);
         let ticks_left = orders.first().map_or(0, |o| ticks(o.secs));
         Self {
             orders,
             index: 0,
             ticks_left,
             started: false,
+            skill,
             params,
-            view: DelayedView::new(delay),
+            view: DelayedView::new(delay_ticks(params)),
             rng: Rng::new(HAND_SEED),
             until_wobble_secs: 0.0,
             aim_offset_rad: 0.0,
@@ -128,6 +138,11 @@ impl Hands {
 }
 
 /// Everything the agent is told about, gathered from the game's messages.
+fn delay_ticks(params: HandSkill) -> usize {
+    // Rounding a positive, small reaction time to whole ticks.
+    (params.reaction_secs * FIXED_HZ as f32).round().max(0.0) as usize
+}
+
 #[derive(Resource, Debug, Default)]
 struct Watched {
     wave: Option<WaveSpec>,
@@ -137,6 +152,7 @@ struct Watched {
     effects: Effects,
     step: StepEvents,
     finished: Vec<FinishedWave>,
+    wave_skills: Vec<f32>,
 }
 
 #[allow(clippy::too_many_arguments)] // what a player's hands and eyes touch
@@ -165,13 +181,18 @@ fn act(
     };
     if !hands.started {
         hands.started = true;
+        if let Some(skill) = order.skill {
+            hands.skill = skill;
+            hands.params = hand_skill(skill);
+            hands.view.set_delay(delay_ticks(hands.params));
+        }
         if let Some(weapon) = order.weapon {
             let key = weapon_key(weapon);
             keys.release(key);
             keys.press(key);
         }
     }
-    // The hand drifts off target as often as the tier's bot re-aims.
+    // The hand drifts off target as often as a bot of that skill re-aims.
     hands.until_wobble_secs -= time.delta_secs();
     if hands.until_wobble_secs <= 0.0 {
         hands.until_wobble_secs += hands.params.decision_secs;
@@ -245,6 +266,7 @@ fn densest(enemies: &[Vec2]) -> Option<Vec2> {
 
 #[allow(clippy::too_many_arguments)] // one reader per observed fact
 fn watch(
+    hands: Res<Hands>,
     mut watched: ResMut<Watched>,
     mut started: MessageReader<WaveStarted>,
     mut spawned: MessageReader<EnemySpawned>,
@@ -268,6 +290,7 @@ fn watch(
     w.spawned += spawned.read().count() as u32;
     for m in reports.read() {
         w.in_wave = false;
+        w.wave_skills.push(hands.skill);
         w.finished.push(FinishedWave {
             report: *m,
             next: None,
@@ -315,6 +338,7 @@ fn frame(world: &mut World, secs: f32) -> Frame {
         .iter(world)
         .map(|(t, kind)| (t.translation.truncate(), *kind))
         .collect();
+    let skill = world.resource::<Hands>().skill;
     let w = world.resource::<Watched>();
     let still_to_spawn = match (w.wave, w.in_wave) {
         (Some(spec), true) => spec.enemy_count.saturating_sub(w.spawned),
@@ -327,6 +351,7 @@ fn frame(world: &mut World, secs: f32) -> Frame {
         in_wave: w.in_wave,
         still_to_spawn,
         player,
+        skill,
         weapon: w.weapon,
         effects: w.effects,
         enemies,
@@ -372,13 +397,14 @@ mod tests {
 
     #[test]
     fn a_replay_is_identical_every_time() {
-        let earlier = orders(&["e 2 for 1", "n for 1", "w 3 fire densest for 1"]);
+        let earlier = orders(&["e 2 for 1", "n skill 0.5 for 1", "w 3 fire densest for 1"]);
         let latest = orders(&["s 1 for 1"]);
-        let a = replay(SkillTier::Skilled, &earlier, &latest).frame;
-        let b = replay(SkillTier::Skilled, &earlier, &latest).frame;
+        let a = replay(2.0, &earlier, &latest).frame;
+        let b = replay(2.0, &earlier, &latest).frame;
         assert_eq!(a, b);
         assert!(a.wave.is_some(), "the first wave starts within 4 s");
         assert_eq!(a.weapon, WeaponKind::Projectile);
+        assert_eq!(a.skill, 0.5);
     }
 
     #[test]

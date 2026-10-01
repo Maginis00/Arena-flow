@@ -2,6 +2,7 @@
 //! play in steps: where to move, which weapon to hold, where to shoot, and
 //! for how long. Pure parsing; unit-tested.
 
+use super::tier::MAX_HAND_SKILL;
 use crate::weapons::api::WeaponKind;
 use bevy::math::Vec2;
 use std::fmt;
@@ -43,6 +44,8 @@ pub struct Order {
     pub weapon: Option<WeaponKind>,
     pub aim: Aim,
     pub secs: f32,
+    /// New hand skill from this order on (see `tier::hand_skill`).
+    pub skill: Option<f32>,
 }
 
 impl Default for Order {
@@ -52,6 +55,7 @@ impl Default for Order {
             weapon: None,
             aim: Aim::Nearest,
             secs: DEFAULT_ORDER_SECS,
+            skill: None,
         }
     }
 }
@@ -84,7 +88,8 @@ impl FromStr for Order {
 
     /// Words in any order, all optional: a direction (`n` `ne` ... `stop`) or
     /// `to X Y`; a weapon (`1` `2` `3`, or its name); `fire nearest`,
-    /// `fire densest`, `fire DEG` or `hold`; `for SECS`.
+    /// `fire densest`, `fire DEG` or `hold`; `skill LEVEL` (hands from now on,
+    /// 0 novice to 3 expert); `for SECS`.
     fn from_str(line: &str) -> Result<Self, Self::Err> {
         let mut order = Self::default();
         let lower = line.to_ascii_lowercase();
@@ -110,6 +115,13 @@ impl FromStr for Order {
                         Some("densest") => Aim::Densest,
                         other => Aim::Angle(number(other, "fire")?),
                     }
+                }
+                "skill" => {
+                    let level = number(words.next(), "skill")?;
+                    if !(0.0..=MAX_HAND_SKILL).contains(&level) {
+                        return Err(format!("skill: {level} is outside 0-{MAX_HAND_SKILL}"));
+                    }
+                    order.skill = Some(level);
                 }
                 "for" => {
                     let secs = number(words.next(), "for")?;
@@ -161,6 +173,9 @@ impl fmt::Display for Order {
             Aim::Densest => f.write_str(" fire densest")?,
             Aim::Angle(deg) => write!(f, " fire {deg}")?,
         }
+        if let Some(level) = self.skill {
+            write!(f, " skill {level}")?;
+        }
         write!(f, " for {}", self.secs)
     }
 }
@@ -198,12 +213,13 @@ mod tests {
         assert!("to 10".parse::<Order>().is_err());
         assert!("for 10".parse::<Order>().is_err());
         assert!("fire everywhere".parse::<Order>().is_err());
+        assert!("skill 4".parse::<Order>().is_err());
     }
 
     #[test]
     fn display_reads_back_to_the_same_order() {
         for line in [
-            "ne 2 fire nearest for 0.3",
+            "ne 2 fire nearest skill 1.5 for 0.3",
             "to 10 -20 hold for 1",
             "stop fire 45 for 0.1",
         ] {
