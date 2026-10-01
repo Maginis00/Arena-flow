@@ -24,6 +24,7 @@ src/
   weapons.rs        weapons/api.rs          selection, cooldowns, shots
   combat.rs         combat/api.rs           hit detection and resolution
   enemies.rs        enemies/api.rs          spawning, chasing, contact damage
+                    enemies/placement.rs    spawn point outside the safe radius (+ tests)
   pickups.rs        pickups/api.rs          drops, collection, effect timers
                     pickups/table.rs        what each pickup does (pure + tests)
   waves.rs          waves/api.rs            the plugin and its system order
