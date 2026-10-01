@@ -9,6 +9,7 @@ fn settle(tier: SkillTier) -> Summary {
         seed: 1,
         minutes: 4.0,
         weapon_lock: None,
+        pinned: None,
     });
     Summary::of(&log)
 }

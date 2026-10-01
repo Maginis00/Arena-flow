@@ -19,16 +19,30 @@ const STARTING_DIFFICULTY: Difficulty = match Difficulty::new(3) {
     Err(_) => Difficulty::MIN,
 };
 
-pub struct FlowDirectorPlugin;
+/// The director, starting at `start` and steering by `config`. The default is
+/// the game's; playtests pin the difficulty with [`DirectorConfig::pinned`].
+pub struct FlowDirectorPlugin {
+    pub start: Difficulty,
+    pub config: DirectorConfig,
+}
+
+impl Default for FlowDirectorPlugin {
+    fn default() -> Self {
+        Self {
+            start: STARTING_DIFFICULTY,
+            config: DirectorConfig::default(),
+        }
+    }
+}
 
 impl Plugin for FlowDirectorPlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<DifficultyAdjusted>()
             .insert_resource(DirectorState {
-                difficulty: STARTING_DIFFICULTY,
+                difficulty: self.start,
                 memory: DirectorMemory::default(),
             })
-            .insert_resource(Config(DirectorConfig::default()))
+            .insert_resource(Config(self.config))
             .add_systems(Startup, announce_initial)
             .add_systems(FixedUpdate, adjust_after_wave.in_set(SimSet::Direct));
     }

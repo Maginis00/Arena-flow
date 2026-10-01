@@ -127,6 +127,7 @@ mod tests {
             shots_fired: 10,
             shots_hit: 5,
             pickups_collected: 0,
+            danger: Default::default(),
         };
         WaveRecord {
             report,

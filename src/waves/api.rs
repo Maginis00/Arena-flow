@@ -71,6 +71,32 @@ pub struct WaveReport {
     /// Shots that hit at least one enemy.
     pub shots_hit: u32,
     pub pickups_collected: u32,
+    /// How near enemies came, whether or not they hit.
+    pub danger: Danger,
+}
+
+/// How near enemies came to the player while the wave was in play, measured
+/// every tick from positions. Damage only shows the approaches that landed;
+/// this also counts the ones the player got away from.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct Danger {
+    /// Enemies that came within touching distance and left (killed or
+    /// outrun) without a contact hit on that approach.
+    pub close_calls: u32,
+    /// Close calls weighted by how near each came: 1 for a graze, 0 at the
+    /// edge of the close-call ring.
+    pub close_call_weight: f32,
+    /// Approaches that ended in at least one contact hit.
+    pub hit_approaches: u32,
+    /// Seconds some enemy was less than a short reaction time from contact.
+    pub threat_secs: f32,
+    /// Seconds no enemy was within a few seconds of contact.
+    pub calm_secs: f32,
+    /// Most enemies at once within about a second of contact.
+    pub peak_crowd: u32,
+    /// Fewest seconds any enemy was from contact; `None` if none ever came
+    /// within a few seconds.
+    pub closest_secs: Option<f32>,
 }
 
 impl WaveReport {

@@ -7,11 +7,12 @@
 //! so transitions happen on simulation ticks instead of at frame boundaries.
 //! `Cleared` covers both outcomes: the wave has left play, cleared or failed.
 //!
-//! The machine's data lives in `machine`, the counting in `measure`, and the
-//! phase changes in `transitions`.
+//! The machine's data lives in `machine`, the counting in `measure`, how near
+//! enemies came in `danger`, and the phase changes in `transitions`.
 
 pub mod api;
 
+mod danger;
 mod machine;
 mod measure;
 mod transitions;
@@ -35,6 +36,7 @@ impl Plugin for WavesPlugin {
                     measure::record_director,
                     measure::track_hp,
                     measure::measure,
+                    danger::measure_danger,
                     transitions::advance,
                 )
                     .chain()

@@ -1,7 +1,7 @@
 //! What telemetry records for a whole play session, bot or human. Other
 //! plugins never read this; the playtest report and the session files do.
 
-pub use super::record_file::{SESSION_DIR, read_session_file};
+pub use super::record_file::{SESSION_DIR, read_session_file, save_session};
 
 use crate::flow_director::api::DecisionReason;
 use crate::pickups::api::PickupKind;

@@ -34,6 +34,17 @@ impl Default for DirectorConfig {
 }
 
 impl DirectorConfig {
+    /// Never moves: every wave plays at the starting difficulty. For
+    /// measuring how a player does at one fixed difficulty.
+    pub fn pinned() -> Self {
+        Self {
+            up_quarters: 0,
+            down_quarters: 0,
+            died_quarters: 0,
+            ..Self::default()
+        }
+    }
+
     pub fn in_band(&self, risk: f32) -> bool {
         (self.band_low..=self.band_high).contains(&risk)
     }
@@ -172,6 +183,7 @@ mod tests {
             shots_fired: 40,
             shots_hit: 30,
             pickups_collected: 0,
+            danger: Default::default(),
         }
     }
 

@@ -4,7 +4,7 @@
 use super::api::{PickupTaken, WEAPONS, WaveRecord, WeaponTally, weapon_slot};
 use crate::flow_director::api::{DecisionReason, Difficulty};
 use crate::pickups::api::PickupKind;
-use crate::waves::api::{WaveIndex, WaveReport};
+use crate::waves::api::{Danger, WaveIndex, WaveReport};
 use crate::weapons::api::WeaponKind;
 use serde::{Deserialize, Serialize};
 
@@ -32,9 +32,51 @@ pub(super) struct WaveLine {
     shots_hit: u32,
     /// As the wave counted them: taken while the wave was in play.
     pickups_collected: u32,
+    /// Missing in files written before danger was measured.
+    #[serde(default)]
+    danger: DangerLine,
     decision: Option<String>,
     weapons: Vec<WeaponLine>,
     pickups: Vec<PickupLine>,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+struct DangerLine {
+    close_calls: u32,
+    close_call_weight: f32,
+    hit_approaches: u32,
+    threat_secs: f32,
+    calm_secs: f32,
+    peak_crowd: u32,
+    closest_secs: Option<f32>,
+}
+
+impl From<Danger> for DangerLine {
+    fn from(d: Danger) -> Self {
+        Self {
+            close_calls: d.close_calls,
+            close_call_weight: d.close_call_weight,
+            hit_approaches: d.hit_approaches,
+            threat_secs: d.threat_secs,
+            calm_secs: d.calm_secs,
+            peak_crowd: d.peak_crowd,
+            closest_secs: d.closest_secs,
+        }
+    }
+}
+
+impl From<&DangerLine> for Danger {
+    fn from(d: &DangerLine) -> Self {
+        Self {
+            close_calls: d.close_calls,
+            close_call_weight: d.close_call_weight,
+            hit_approaches: d.hit_approaches,
+            threat_secs: d.threat_secs,
+            calm_secs: d.calm_secs,
+            peak_crowd: d.peak_crowd,
+            closest_secs: d.closest_secs,
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -76,6 +118,7 @@ impl From<&WaveRecord> for WaveLine {
             shots_fired: r.shots_fired,
             shots_hit: r.shots_hit,
             pickups_collected: r.pickups_collected,
+            danger: r.danger.into(),
             decision: w.decision.map(|d| decision_name(d).to_owned()),
             weapons: WEAPONS
                 .iter()
@@ -149,6 +192,7 @@ impl WaveLine {
             shots_fired: self.shots_fired,
             shots_hit: self.shots_hit,
             pickups_collected: self.pickups_collected,
+            danger: (&self.danger).into(),
         };
         Ok(WaveRecord {
             report,
@@ -251,6 +295,15 @@ mod tests {
                 shots_fired: 20,
                 shots_hit: 15,
                 pickups_collected: 1,
+                danger: Danger {
+                    close_calls: 3,
+                    close_call_weight: 1.5,
+                    hit_approaches: 2,
+                    threat_secs: 1.25,
+                    calm_secs: 4.0,
+                    peak_crowd: 4,
+                    closest_secs: Some(0.1),
+                },
             },
             weapons,
             pickups: vec![PickupTaken {

@@ -8,6 +8,9 @@
 //! cargo run --example playtest -- --matrix   # every tier x every weapon
 //! cargo run --example playtest -- --human       # add your own sessions
 //! cargo run --example playtest -- --human-only  # only your own sessions
+//! cargo run --example playtest -- --pin 5 --pin 7.5  # no director: fixed difficulty
+//! cargo run --example playtest -- --sweep            # pinned at every level 1 to 10
+//! cargo run --example playtest -- --jsonl out/       # also save each bot session
 //! ```
 //!
 //! Your sessions are the files the game writes to `playtests/` when you play
@@ -31,18 +34,23 @@
 //! cargo run --example playtest -- --watch-all
 //! ```
 
+use flow_arena::flow_director::api::Difficulty;
 use flow_arena::playtest::{
     Named, Quadrant, SessionConfig, SkillTier, Summary, WatchConfig, pickup_table, play, table,
     watch, weapon_table,
 };
-use flow_arena::telemetry::api::{SESSION_DIR, SessionRecord, WEAPONS, read_session_file};
+use flow_arena::telemetry::api::{
+    SESSION_DIR, SessionRecord, WEAPONS, read_session_file, save_session,
+};
 use flow_arena::weapons::api::WeaponKind;
 use std::path::PathBuf;
 use std::process::{Command, ExitCode};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
 
 const USAGE: &str = "usage: playtest [--minutes N] [--seeds N] [--tier NAME]... \
                      [--weapon projectile|hitscan|melee]... [--matrix] [--human] [--human-only]\n       \
+                     [--pin LEVEL]... [--sweep] [--jsonl DIR]\n       \
                      playtest --watch [--tier NAME] [--seeds N] [--weapon NAME] [--quadrant NAME]\n       \
                      playtest --watch-all [--tier NAME]... [--seeds N] [--weapon NAME]";
 
@@ -52,6 +60,9 @@ struct Args {
     tiers: Vec<SkillTier>,
     /// `None` is the tier's own weapon choice.
     weapons: Vec<Option<WeaponKind>>,
+    /// `None` is the director steering.
+    pins: Vec<Option<Difficulty>>,
+    jsonl: Option<PathBuf>,
     human: bool,
     bots: bool,
     watch: bool,
@@ -70,12 +81,25 @@ fn parse_weapon(name: &str) -> Result<WeaponKind, String> {
     }
 }
 
+/// A difficulty level in quarter steps, e.g. `7.25`.
+fn parse_level(text: &str) -> Result<Difficulty, String> {
+    let level: f32 = text.parse().map_err(|e| format!("--pin: {e}"))?;
+    let quarters = (level * f32::from(Difficulty::QUARTERS_PER_LEVEL)).round();
+    if !(0.0..=255.0).contains(&quarters) {
+        return Err(format!("--pin {text}: expected a level from 1 to 10"));
+    }
+    // In u8 range after the check above.
+    Difficulty::from_quarters(quarters as u8).map_err(|e| format!("--pin {text}: {e}"))
+}
+
 fn parse(mut raw: impl Iterator<Item = String>) -> Result<Args, String> {
     let mut args = Args {
         minutes: 10.0,
         seeds: 1,
         tiers: Vec::new(),
         weapons: Vec::new(),
+        pins: Vec::new(),
+        jsonl: None,
         human: false,
         bots: true,
         watch: false,
@@ -94,6 +118,13 @@ fn parse(mut raw: impl Iterator<Item = String>) -> Result<Args, String> {
             "--matrix" => {
                 args.weapons = std::iter::once(None).chain(WEAPONS.map(Some)).collect();
             }
+            "--pin" => args.pins.push(Some(parse_level(&value()?)?)),
+            "--sweep" => {
+                args.pins = (1..=10)
+                    .filter_map(|l| Difficulty::new(l).ok().map(Some))
+                    .collect();
+            }
+            "--jsonl" => args.jsonl = Some(PathBuf::from(value()?)),
             "--watch" => args.watch = true,
             "--watch-all" => args.watch_all = true,
             "--quadrant" => args.quadrant = Some(value()?.parse()?),
@@ -114,6 +145,9 @@ fn parse(mut raw: impl Iterator<Item = String>) -> Result<Args, String> {
     }
     if args.weapons.is_empty() {
         args.weapons.push(None);
+    }
+    if args.pins.is_empty() {
+        args.pins.push(None);
     }
     Ok(args)
 }
@@ -161,27 +195,20 @@ fn main() -> ExitCode {
     };
     for &tier in tiers {
         for &weapon_lock in &args.weapons {
-            for seed in 1..=args.seeds.max(1) {
-                configs.push(SessionConfig {
-                    tier,
-                    seed,
-                    minutes: args.minutes,
-                    weapon_lock,
-                });
+            for &pinned in &args.pins {
+                for seed in 1..=args.seeds.max(1) {
+                    configs.push(SessionConfig {
+                        tier,
+                        seed,
+                        minutes: args.minutes,
+                        weapon_lock,
+                        pinned,
+                    });
+                }
             }
         }
     }
-    // Sessions are independent and deterministic; run them side by side.
-    let logs: Vec<SessionRecord> = thread::scope(|scope| {
-        let handles: Vec<_> = configs
-            .iter()
-            .map(|&config| scope.spawn(move || play(config)))
-            .collect();
-        handles
-            .into_iter()
-            .map(|h| h.join().unwrap_or_default())
-            .collect()
-    });
+    let logs = play_all(&configs);
 
     let mut named: Vec<Named> = humans
         .iter()
@@ -191,8 +218,15 @@ fn main() -> ExitCode {
         let lock = c
             .weapon_lock
             .map_or_else(String::new, |w| format!(" [{w} only]"));
-        (format!("{} #{}{lock}", c.tier, c.seed), log)
+        let pin = c.pinned.map_or_else(String::new, |d| format!(" @{d}"));
+        (format!("{} #{}{lock}{pin}", c.tier, c.seed), log)
     }));
+    if let Some(dir) = &args.jsonl
+        && let Err(e) = save_all(dir, &configs, &logs)
+    {
+        eprintln!("{e}");
+        return ExitCode::FAILURE;
+    }
     if args.bots {
         println!("{} simulated minutes per bot\n", args.minutes);
     }
@@ -206,6 +240,39 @@ fn main() -> ExitCode {
         println!("- {name}: {}", Summary::of(log).trajectory);
     }
     ExitCode::SUCCESS
+}
+
+/// Sessions are independent and deterministic, so they run side by side, one
+/// worker per core: a thread per session makes the cores fight over Bevy's
+/// shared task pool once a sweep has a hundred sessions.
+fn play_all(configs: &[SessionConfig]) -> Vec<SessionRecord> {
+    let workers = thread::available_parallelism().map_or(4, |n| n.get());
+    let next = AtomicUsize::new(0);
+    let mut logs = vec![SessionRecord::default(); configs.len()];
+    let finished: Vec<(usize, SessionRecord)> = thread::scope(|scope| {
+        let handles: Vec<_> = (0..workers)
+            .map(|_| {
+                scope.spawn(|| {
+                    let mut done = Vec::new();
+                    loop {
+                        let i = next.fetch_add(1, Ordering::Relaxed);
+                        let Some(&config) = configs.get(i) else {
+                            return done;
+                        };
+                        done.push((i, play(config)));
+                    }
+                })
+            })
+            .collect();
+        handles
+            .into_iter()
+            .flat_map(|h| h.join().unwrap_or_default())
+            .collect()
+    });
+    for (i, log) in finished {
+        logs[i] = log;
+    }
+    logs
 }
 
 /// Starts one `--watch` process of this binary per tier, each in its own
@@ -227,13 +294,7 @@ fn watch_all(args: &Args) -> ExitCode {
         command.args(["--quadrant", &quadrant.to_string()]);
         command.args(["--seeds", &args.seeds.max(1).to_string()]);
         if let Some(weapon) = args.weapons.iter().find_map(|w| *w) {
-            // Display says "melee arc"; pass the name `parse_weapon` reads.
-            let name = match weapon {
-                WeaponKind::Projectile => "projectile",
-                WeaponKind::Hitscan => "hitscan",
-                WeaponKind::Melee => "melee",
-            };
-            command.args(["--weapon", name]);
+            command.args(["--weapon", weapon_name(weapon)]);
         }
         match command.spawn() {
             Ok(child) => children.push(child),
@@ -250,6 +311,33 @@ fn watch_all(args: &Args) -> ExitCode {
         ExitCode::SUCCESS
     } else {
         ExitCode::FAILURE
+    }
+}
+
+/// One file per bot session: `<tier>-<weapon or own>-<pinned or director>-<seed>.jsonl`.
+fn save_all(
+    dir: &std::path::Path,
+    configs: &[SessionConfig],
+    logs: &[SessionRecord],
+) -> Result<(), String> {
+    std::fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+    for (c, log) in configs.iter().zip(logs) {
+        let weapon = c.weapon_lock.map_or("own", weapon_name);
+        let pin = c
+            .pinned
+            .map_or_else(|| "director".to_owned(), |d| d.to_string());
+        let name = format!("{}-{weapon}-{pin}-{}.jsonl", c.tier, c.seed);
+        save_session(&dir.join(name), log)?;
+    }
+    Ok(())
+}
+
+/// The name `parse_weapon` reads back (Display says "melee arc").
+const fn weapon_name(weapon: WeaponKind) -> &'static str {
+    match weapon {
+        WeaponKind::Projectile => "projectile",
+        WeaponKind::Hitscan => "hitscan",
+        WeaponKind::Melee => "melee",
     }
 }
 
