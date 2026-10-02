@@ -78,6 +78,7 @@ and read with `MessageReader`. There are no observers in this slice.
 | Message | Owner (api) | Written by | Read by |
 |---|---|---|---|
 | `FireRequested` | player | player `request_fire` | weapons `fire` |
+| `SwingRequested` | player | player `request_fire` | weapons `swing` |
 | `PlayerSpawned` | player | player `spawn_player`, `respawn_on_wave_start` | waves `record_director`, `track_hp`, telemetry |
 | `WeaponSwitched` | weapons | weapons `announce_initial`, `apply_selection` | telemetry |
 | `ShotFired` | weapons | weapons `fire` | combat `resolve_instant_shots`, waves `measure`, debug_render `draw_flashes` |
@@ -122,7 +123,7 @@ Notes:
 | Order | SimSet | Systems |
 |---|---|---|
 | 1 | `Intent` | player `track_effects`, `request_fire`; weapons `track_effects`, `apply_selection`; combat `track_effects` |
-| 2 | `Spawn` | weapons `fire`; enemies `queue_wave` then `spawn_from_queue` then `summon` then `shoot`; pickups `drop_on_kills`, `age_pickups` |
+| 2 | `Spawn` | weapons `fire` then `swing`; enemies `queue_wave` then `spawn_from_queue` then `summon` then `shoot`; pickups `drop_on_kills`, `age_pickups` |
 | 3 | `Movement` | player `move_player`, enemies `move_enemies`, `move_bolts`, weapons `move_projectiles` |
 | 4 | `Detect` | combat `detect_projectile_hits`, `resolve_instant_shots`; enemies `contact_damage` then `bolt_hits`; pickups `collect` |
 | 5 | `Resolve` | combat `apply_heals` then `apply_hits` |
@@ -132,6 +133,14 @@ Notes:
 
 A message written by a later set is read by an earlier set on the next tick.
 Bevy only drops messages after `FixedUpdate` has run, so none are missed.
+
+## Sword binding (weapons, prototype)
+
+`SwordBinding` says where the sword lives. `Key3` (the default) is the game as
+it was: one of three weapons. `RightClick` puts it on the right mouse button
+next to the gun, with its own cooldown; `3` then selects nothing.
+`ARENA_SWORD=right` sets it for the game window and `--sword right` for the
+playtest example.
 
 ## Enemy kinds (enemies)
 
@@ -204,7 +213,8 @@ builds a headless app (`MinimalPlugins`, `InputPlugin`, every gameplay plugin
 except debug_render, a fixed 1/60 s clock) and adds `PlaytestBotPlugin`, which
 runs `perceive` then `act` in `SimSet::Intent`. The bot only uses what a human
 has: it presses keys in `ButtonInput<KeyCode>` for movement and weapon choice,
-and writes `FireRequested` as the mouse would. It sees the world through a delay
+and writes `FireRequested` as the mouse would (`SwingRequested` for a sword on
+the right mouse button, whenever an enemy is in reach). It sees the world through a delay
 line of snapshots (reaction time): enemy positions, which of them are
 summoners, enemy bolts, chargers' tells and pickups. It dodges bolts like
 enemies; skilled and expert bots shoot a summoner in reach first (and walk to

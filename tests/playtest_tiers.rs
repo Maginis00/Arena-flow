@@ -4,6 +4,7 @@
 use flow_arena::enemies::api::EnemyMix;
 use flow_arena::pickups::api::PickupRules;
 use flow_arena::playtest::{SessionConfig, SkillTier, Summary, play};
+use flow_arena::weapons::api::SwordBinding;
 
 fn settle_with(tier: SkillTier, enemies: EnemyMix, pickup_rules: PickupRules) -> Summary {
     let log = play(SessionConfig {
@@ -16,6 +17,7 @@ fn settle_with(tier: SkillTier, enemies: EnemyMix, pickup_rules: PickupRules) ->
         pickup_rules,
         pickup_policy: None,
         spend: None,
+        sword: SwordBinding::Key3,
     });
     Summary::of(&log)
 }

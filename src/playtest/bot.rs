@@ -1,8 +1,11 @@
 //! A simulated player that plays through the real game plugins: it moves by
 //! holding `W` `A` `S` `D`, switches weapons with `1` `2` `3`, and aims and
-//! fires by writing the same `FireRequested` the mouse would.
+//! fires by writing the same `FireRequested` the mouse would (and
+//! `SwingRequested` for a sword on the right mouse button).
 
-use super::choices::{choose_weapon, reach, wants_pickup, wants_shard, wants_to_spend};
+use super::choices::{
+    choose_weapon, primary, reach, swing_target, wants_pickup, wants_shard, wants_to_spend,
+};
 use super::perception::{DelayedView, Rng, Snapshot};
 use super::steering::{dodge, eight_way, nearest, rotate, sidestep, wall_push};
 #[cfg(doc)]
@@ -13,8 +16,8 @@ use crate::arena::api::ArenaBounds;
 use crate::combat::api::Health;
 use crate::enemies::api::{ChargeTell, Enemy, EnemyBolt, EnemyKind};
 use crate::pickups::api::{PickupKind, Shard, ShardsChanged};
-use crate::player::api::{FireRequested, Player};
-use crate::weapons::api::WeaponKind;
+use crate::player::api::{FireRequested, Player, SwingRequested};
+use crate::weapons::api::{SwordBinding, WeaponKind};
 use bevy::prelude::*;
 
 /// PLACEHOLDER steering weights shared by every tier.
@@ -115,13 +118,16 @@ fn perceive(
     });
 }
 
+#[allow(clippy::too_many_arguments)] // one param per thing the bot reads or presses
 fn act(
     time: Res<Time>,
     bounds: Res<ArenaBounds>,
+    sword: Res<SwordBinding>,
     mut brain: ResMut<Brain>,
     mut keys: ResMut<ButtonInput<KeyCode>>,
     player: Query<(Entity, &Transform, &Health), With<Player>>,
     mut fire: MessageWriter<FireRequested>,
+    mut swing: MessageWriter<SwingRequested>,
 ) {
     let alive = player.iter().find(|(.., health)| !health.is_dead());
     let Some((shooter, transform, health)) = alive else {
@@ -142,7 +148,7 @@ fn act(
         brain.until_decision_secs +=
             p.decision_secs * (1.0 + DECISION_JITTER * brain.rng.signed_unit());
         let hp = health.current() as f32 / health.max().max(1) as f32;
-        let weapon = choose_weapon(p.weapon, own, &seen.enemies);
+        let weapon = primary(choose_weapon(p.weapon, own, &seen.enemies), *sword);
         let wish = movement_wish(&p, weapon, own, seen, hp, bounds.half_extents());
         hold_keys(&mut keys, eight_way(wish));
         if weapon != brain.weapon {
@@ -154,6 +160,17 @@ fn act(
         brain.aim_offset_rad = brain.rng.wobble() * p.aim_error_deg.to_radians();
         if wants_to_spend(p.spend, brain.held_shards, hp, own, &seen.enemies) {
             keys.press(KeyCode::Space);
+        }
+    }
+
+    if let Some(close) = swing_target(*sword, own, &seen.enemies) {
+        let direction = rotate((close - own).normalize_or_zero(), brain.aim_offset_rad);
+        if direction != Vec2::ZERO {
+            swing.write(SwingRequested {
+                shooter,
+                origin: own,
+                direction,
+            });
         }
     }
 
