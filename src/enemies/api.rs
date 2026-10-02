@@ -97,6 +97,13 @@ impl FromStr for EnemyMix {
     }
 }
 
+/// What a charger shows: the direction it will dash in while it winds up,
+/// `None` otherwise. Every charger carries one.
+#[derive(Component, Debug, Clone, Copy, PartialEq, Default)]
+pub struct ChargeTell {
+    pub aim: Option<Vec2>,
+}
+
 /// A bolt fired by an enemy. Hurts only the player; player shots pass through it.
 #[derive(Component, Debug, Clone, Copy)]
 pub struct EnemyBolt {

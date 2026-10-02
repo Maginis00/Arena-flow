@@ -6,7 +6,7 @@ pub mod api;
 
 use crate::arena::api::ArenaBounds;
 use crate::combat::api::{Hitbox, Projectile};
-use crate::enemies::api::{EnemyBolt, EnemyKind};
+use crate::enemies::api::{ChargeTell, EnemyBolt, EnemyKind};
 use crate::pickups::api::PickupKind;
 use crate::player::api::Player;
 use crate::weapons::api::{Delivery, ShotFired};
@@ -19,6 +19,8 @@ const SHOOTER_COLOR: Color = Color::srgb(1.0, 0.45, 0.1);
 const BRUTE_COLOR: Color = Color::srgb(0.55, 0.05, 0.05);
 const CHARGER_COLOR: Color = Color::srgb(1.0, 0.3, 0.55);
 const SUMMONER_COLOR: Color = Color::srgb(0.6, 0.2, 0.9);
+/// A charger winding up flashes this colour: its tell.
+const CHARGER_TELL_COLOR: Color = Color::srgb(1.0, 0.95, 0.95);
 const BOLT_COLOR: Color = Color::srgb(1.0, 0.55, 0.2);
 const PROJECTILE_COLOR: Color = Color::srgb(1.0, 0.9, 0.1);
 const BORDER_COLOR: Color = Color::srgb(0.3, 0.3, 0.32);
@@ -38,7 +40,15 @@ impl Plugin for DebugRenderPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Flashes>()
             .add_systems(Startup, spawn_border)
-            .add_systems(Update, (attach_boxes, attach_pickup_boxes, draw_flashes));
+            .add_systems(
+                Update,
+                (
+                    attach_boxes,
+                    attach_pickup_boxes,
+                    show_charge_tells,
+                    draw_flashes,
+                ),
+            );
     }
 }
 
@@ -88,6 +98,17 @@ fn attach_boxes(
             (_, None, false) => PROJECTILE_COLOR,
         };
         insert_box(&mut commands, entity, color, hitbox);
+    }
+}
+
+/// A charger turns pale while it winds up, so the dash can be read.
+fn show_charge_tells(mut chargers: Query<(&ChargeTell, &mut Sprite), Changed<ChargeTell>>) {
+    for (tell, mut sprite) in &mut chargers {
+        sprite.color = if tell.aim.is_some() {
+            CHARGER_TELL_COLOR
+        } else {
+            CHARGER_COLOR
+        };
     }
 }
 
