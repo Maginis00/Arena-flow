@@ -43,6 +43,32 @@ pub fn table(rows: &[Named]) -> String {
     out
 }
 
+/// Flow: how each session's waves sit on the flow curve. Mechanical
+/// pressure only (hp at stake), not decisions or reading enemies.
+pub fn flow_table(rows: &[Named]) -> String {
+    let mut out = String::from(
+        "| player | flow score | in flow | bored | overwhelmed | deaths/wave | close calls/wave | calm time | settled diff |\n\
+         |---|---|---|---|---|---|---|---|---|\n",
+    );
+    for (name, session) in rows {
+        let s = Summary::of(session);
+        // Writing to a String cannot fail.
+        let _ = writeln!(
+            out,
+            "| {name} | {:.2} | {:.0}% | {:.0}% | {:.0}% | {:.0}% | {:.2} | {:.0}% | {:.2} |",
+            s.flow,
+            s.in_flow * 100.0,
+            s.bored * 100.0,
+            s.overwhelmed * 100.0,
+            ratio(s.deaths, s.waves) * 100.0,
+            s.close_calls,
+            s.calm * 100.0,
+            s.settled,
+        );
+    }
+    out
+}
+
 /// One row per session and weapon actually held.
 pub fn weapon_table(rows: &[Named]) -> String {
     let mut out = String::from(

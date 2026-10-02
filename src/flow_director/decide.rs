@@ -22,11 +22,14 @@ pub struct DirectorConfig {
 
 impl Default for DirectorConfig {
     fn default() -> Self {
+        // Centred on the flow curve's peak (half the hp at stake), quick to
+        // climb out of boredom and quick to see a single risky wave. Chosen
+        // by a 96-variant bot search for the most waves near the peak.
         Self {
-            band_low: 0.20,   // PLACEHOLDER
-            band_high: 0.40,  // PLACEHOLDER
-            smoothing: 0.2,   // PLACEHOLDER
-            up_quarters: 1,   // PLACEHOLDER: +0.25
+            band_low: 0.35,   // PLACEHOLDER
+            band_high: 0.65,  // PLACEHOLDER
+            smoothing: 0.5,   // PLACEHOLDER
+            up_quarters: 2,   // PLACEHOLDER: +0.5
             down_quarters: 2, // PLACEHOLDER: -0.5
             died_quarters: 4, // PLACEHOLDER: -1.0
         }
@@ -34,6 +37,17 @@ impl Default for DirectorConfig {
 }
 
 impl DirectorConfig {
+    /// Never moves: every wave plays at the starting difficulty. For
+    /// measuring how a player does at one fixed difficulty.
+    pub fn pinned() -> Self {
+        Self {
+            up_quarters: 0,
+            down_quarters: 0,
+            died_quarters: 0,
+            ..Self::default()
+        }
+    }
+
     pub fn in_band(&self, risk: f32) -> bool {
         (self.band_low..=self.band_high).contains(&risk)
     }
@@ -57,8 +71,8 @@ pub struct Decision {
 
 /// How close the wave came to killing the player, in `[0, 1]`: the share of
 /// the hp the player brought into the wave that it took away, and 1 if the
-/// player died. Hp carries over between waves, so measuring against the hp
-/// at the start keeps damage from earlier waves out of this wave's reading.
+/// player died. Measuring against the hp at the start keeps anything that
+/// happened before the wave out of this wave's reading.
 pub fn wave_risk(report: &WaveReport) -> f32 {
     if report.player_died || report.start_hp == 0 {
         return 1.0;
@@ -75,10 +89,11 @@ pub fn wave_risk(report: &WaveReport) -> f32 {
 /// - inside the band: hold
 /// - below the band: up `up_quarters`
 ///
-/// Down steps are bigger than up steps on purpose: overshooting into danger
-/// costs more engagement than staying a little safe. Smoothing is the
-/// hysteresis: a death keeps the smoothed risk high for a few waves, so the
-/// director does not climb straight back.
+/// A death steps down further than a safe wave steps up: past the peak the
+/// flow curve falls steeply, so overshooting into danger costs more
+/// engagement than staying a little safe. Smoothing is the hysteresis: a
+/// death keeps the smoothed risk high for a wave or two, so the director does
+/// not climb straight back.
 pub fn decide(
     current: Difficulty,
     report: &WaveReport,
@@ -172,6 +187,7 @@ mod tests {
             shots_fired: 40,
             shots_hit: 30,
             pickups_collected: 0,
+            danger: Default::default(),
         }
     }
 
@@ -211,7 +227,7 @@ mod tests {
     }
 
     #[test]
-    fn too_safe_raises_a_quarter() {
+    fn too_safe_raises_a_half() {
         let d = decide(
             difficulty(5),
             &report(95, false),
@@ -219,7 +235,7 @@ mod tests {
             &DirectorConfig::default(),
         );
         assert_eq!(d.signal, Signal::TooEasy);
-        assert_eq!(d.difficulty, quarters(21));
+        assert_eq!(d.difficulty, quarters(22));
         assert_eq!(d.reason, DecisionReason::Raised);
     }
 
@@ -227,7 +243,7 @@ mod tests {
     fn in_band_holds() {
         let d = decide(
             difficulty(5),
-            &report(70, false),
+            &report(50, false),
             fresh(),
             &DirectorConfig::default(),
         );
@@ -240,7 +256,7 @@ mod tests {
     fn too_risky_lowers_a_half() {
         let d = decide(
             difficulty(5),
-            &report(40, false),
+            &report(20, false),
             fresh(),
             &DirectorConfig::default(),
         );
@@ -263,18 +279,25 @@ mod tests {
     }
 
     #[test]
-    fn down_steps_are_bigger_than_up_steps() {
+    fn a_death_steps_down_further_than_a_safe_wave_steps_up() {
         let c = DirectorConfig::default();
-        assert!(c.down_quarters > c.up_quarters);
+        assert!(c.down_quarters >= c.up_quarters);
+        assert!(c.died_quarters > c.up_quarters);
         assert!(c.died_quarters > c.down_quarters);
+    }
+
+    #[test]
+    fn the_band_sits_around_the_flow_peak() {
+        let c = DirectorConfig::default();
+        assert!(c.in_band(crate::flow_director::FLOW_PEAK));
     }
 
     #[test]
     fn smoothing_blends_the_new_wave_into_history() {
         let c = DirectorConfig::default();
         // One very safe wave after risky history stays in band: no jump up.
-        let d = decide(difficulty(5), &report(100, false), after(0.45), &c);
-        assert!((d.risk.smoothed - 0.36).abs() < 1e-5);
+        let d = decide(difficulty(5), &report(100, false), after(0.8), &c);
+        assert!((d.risk.smoothed - 0.4).abs() < 1e-5);
         assert_eq!(d.reason, DecisionReason::HeldInBand);
         assert_eq!(d.memory.smoothed_risk, Some(d.risk.smoothed));
     }

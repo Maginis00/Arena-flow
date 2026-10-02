@@ -89,6 +89,7 @@ fn report(machine: &WaveMachine, spec: WaveSpec) -> WaveReport {
         shots_fired: s.shots_fired,
         shots_hit: count(s.shots_hit.len()),
         pickups_collected: s.pickups_collected,
+        danger: s.danger,
     }
 }
 

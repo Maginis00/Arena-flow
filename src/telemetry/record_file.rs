@@ -73,6 +73,14 @@ fn append(path: &Path, waves: &[WaveRecord]) -> Result<(), String> {
     Ok(())
 }
 
+/// Write a whole session as a new session file (bot runs kept for analysis).
+pub fn save_session(path: &Path, session: &SessionRecord) -> Result<(), String> {
+    if path.exists() {
+        fs::remove_file(path).map_err(|e| format!("{}: {e}", path.display()))?;
+    }
+    append(path, &session.waves)
+}
+
 /// Read a session file written by the game back into a record.
 pub fn read_session_file(path: &Path) -> Result<SessionRecord, String> {
     let file = File::open(path).map_err(|e| format!("{}: {e}", path.display()))?;
