@@ -5,7 +5,13 @@
 //! Run the report with `cargo run --release --example playtest`, or watch one
 //! bot play in the game window with `cargo run --example playtest -- --watch`,
 //! or all four tiers side by side with `-- --watch-all`.
+//!
+//! `agent` lets an outside agent (an LLM, or a person) play in steps instead:
+//! see `examples/agent_play.rs`.
 
+mod agent;
+mod agent_order;
+mod agent_view;
 mod bot;
 mod choices;
 mod perception;
@@ -18,10 +24,13 @@ mod tiling;
 mod watch;
 mod work_area;
 
+pub use agent::{AgentRun, replay};
+pub use agent_order::Order;
+pub use agent_view::{Feel, journal, render};
 pub use bot::PlaytestBotPlugin;
 pub use report::{Named, flow_table, pickup_table, table, weapon_table};
 pub use session::{SessionConfig, play};
 pub use summary::Summary;
-pub use tier::{PickupPolicy, SkillTier, TierParams, WeaponPolicy};
+pub use tier::{HandSkill, PickupPolicy, SkillTier, TierParams, WeaponPolicy, hand_skill};
 pub use tiling::Quadrant;
 pub use watch::{WatchConfig, watch};
