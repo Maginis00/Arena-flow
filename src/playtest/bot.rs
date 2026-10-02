@@ -4,14 +4,14 @@
 
 use super::choices::{choose_weapon, reach, wants_pickup};
 use super::perception::{DelayedView, Rng, Snapshot};
-use super::steering::{dodge, eight_way, nearest, rotate, wall_push};
+use super::steering::{dodge, eight_way, nearest, rotate, sidestep, wall_push};
 #[cfg(doc)]
 use super::tier::SkillTier;
 use super::tier::{PickupPolicy, TierParams};
 use crate::app_setup::api::{FIXED_HZ, SimSet};
 use crate::arena::api::ArenaBounds;
 use crate::combat::api::Health;
-use crate::enemies::api::{Enemy, EnemyBolt, EnemyKind};
+use crate::enemies::api::{ChargeTell, Enemy, EnemyBolt, EnemyKind};
 use crate::pickups::api::PickupKind;
 use crate::player::api::{FireRequested, Player};
 use crate::weapons::api::WeaponKind;
@@ -34,6 +34,9 @@ const BOLT_DODGE_WEIGHT: f32 = 1.5;
 /// Each decision comes up to this share of `decision_secs` early or late, so
 /// no tier plays like a metronome and seeds differ even when aim never misses.
 const DECISION_JITTER: f32 = 0.3;
+/// Bots that read tells step out of a dash lane this wide on either side.
+const TELL_LANE: f32 = 50.0;
+const TELL_WEIGHT: f32 = 2.0;
 
 /// Plays the game with one tier's limits (see [`SkillTier::params`]).
 /// `seed` varies aim wobble between runs.
@@ -78,6 +81,7 @@ fn perceive(
     mut brain: ResMut<Brain>,
     enemies: Query<(&Transform, &EnemyKind), With<Enemy>>,
     bolts: Query<&Transform, With<EnemyBolt>>,
+    tells: Query<(&Transform, &ChargeTell)>,
     pickups: Query<(&Transform, &PickupKind)>,
 ) {
     brain.view.push(Snapshot {
@@ -91,6 +95,10 @@ fn perceive(
             .map(|(t, _)| t.translation.truncate())
             .collect(),
         bolts: bolts.iter().map(|t| t.translation.truncate()).collect(),
+        tells: tells
+            .iter()
+            .filter_map(|(t, tell)| tell.aim.map(|aim| (t.translation.truncate(), aim)))
+            .collect(),
         pickups: pickups
             .iter()
             .map(|(t, kind)| (t.translation.truncate(), *kind))
@@ -179,6 +187,9 @@ fn movement_wish(
     let mut wish = dodge(own, &seen.enemies, dodge_radius, p.strafe);
     let bolt_radius = p.dodge_radius.min(BOLT_DODGE_RADIUS);
     wish += dodge(own, &seen.bolts, bolt_radius, p.strafe) * BOLT_DODGE_WEIGHT;
+    if p.reads_tells {
+        wish += sidestep(own, &seen.tells, TELL_LANE) * TELL_WEIGHT;
+    }
     if let Some((target, _)) = engage.filter(|(t, standoff)| t.distance(own) > *standoff) {
         wish += (target - own).normalize_or_zero() * MELEE_PULL;
     }

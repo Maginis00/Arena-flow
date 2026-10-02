@@ -1,7 +1,7 @@
 //! Turning a wave spec into enemies: the spawn queue, which kind each slot
 //! gets, where it appears, and everything a new enemy carries.
 
-use super::api::{Enemy, EnemyKind, EnemyMix, EnemySpawned};
+use super::api::{ChargeTell, Enemy, EnemyKind, EnemyMix, EnemySpawned};
 use super::movement::Charge;
 use super::{Chaser, ContactCooldown, Gait, attacks, kinds, placement};
 use crate::arena::api::ArenaBounds;
@@ -68,6 +68,9 @@ pub(super) fn spawn_enemy<'a>(
         ContactCooldown::default(),
         Transform::from_translation(at.extend(0.5)),
     ));
+    if kind == EnemyKind::Charger {
+        enemy.insert(ChargeTell::default());
+    }
     attacks::arm(&mut enemy, kind, spec);
     enemy
 }

@@ -13,13 +13,13 @@ const ORBIT_SHARE: f32 = 0.5;
 const CREEP_SHARE: f32 = 0.25;
 
 /// PLACEHOLDER: a charger starts its wind-up this close to the player.
-const CHARGE_TRIGGER_RANGE: f32 = 240.0;
+const CHARGE_TRIGGER_RANGE: f32 = 400.0;
 /// PLACEHOLDER: seconds a charger stands still before dashing (the tell).
-const CHARGE_WINDUP_SECS: f32 = 0.6;
+const CHARGE_WINDUP_SECS: f32 = 0.8;
 /// PLACEHOLDER: seconds a dash lasts.
-const CHARGE_DASH_SECS: f32 = 0.45;
+const CHARGE_DASH_SECS: f32 = 0.6;
 /// PLACEHOLDER: dash speed as a multiple of the charger's own speed.
-const CHARGE_DASH_SCALE: f32 = 4.0;
+const CHARGE_DASH_SCALE: f32 = 6.0;
 /// PLACEHOLDER: seconds a charger stands still after a dash (the opening).
 const CHARGE_RECOVER_SECS: f32 = 0.9;
 
@@ -55,6 +55,14 @@ pub(super) enum Charge {
 }
 
 impl Charge {
+    /// The dash direction while winding up: what a player can read.
+    pub(super) fn tell(self) -> Option<Vec2> {
+        match self {
+            Self::WindUp { direction, .. } => Some(direction),
+            Self::Approach | Self::Dash { .. } | Self::Recover { .. } => None,
+        }
+    }
+
     /// Advance by `dt` and return the next phase and this tick's movement
     /// (a direction times a share of the charger's speed).
     pub(super) fn step(self, to_player: Vec2, dt: f32) -> (Self, Vec2) {

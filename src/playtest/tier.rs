@@ -46,6 +46,8 @@ pub struct TierParams {
     pub trigger_discipline: bool,
     /// Shoots a summoner in reach before the nearest enemy.
     pub focuses_priority: bool,
+    /// Sidesteps out of a charger's lane when it shows its tell.
+    pub reads_tells: bool,
     pub pickups: PickupPolicy,
     /// How far the bot will walk for a pickup.
     pub pickup_reach: f32,
@@ -76,6 +78,7 @@ impl SkillTier {
                 avoids_walls: false,
                 trigger_discipline: false,
                 focuses_priority: false,
+                reads_tells: false,
                 pickups: PickupPolicy::Ignore,
                 pickup_reach: 0.0,
                 weapon: WeaponPolicy::Fixed(WeaponKind::Projectile),
@@ -89,6 +92,7 @@ impl SkillTier {
                 avoids_walls: false,
                 trigger_discipline: false,
                 focuses_priority: false,
+                reads_tells: false,
                 pickups: PickupPolicy::Greedy,
                 pickup_reach: 200.0,
                 weapon: WeaponPolicy::Fixed(WeaponKind::Projectile),
@@ -102,6 +106,7 @@ impl SkillTier {
                 avoids_walls: true,
                 trigger_discipline: true,
                 focuses_priority: true,
+                reads_tells: true,
                 pickups: PickupPolicy::Weighed,
                 pickup_reach: 300.0,
                 weapon: WeaponPolicy::Fixed(WeaponKind::Hitscan),
@@ -115,6 +120,7 @@ impl SkillTier {
                 avoids_walls: true,
                 trigger_discipline: true,
                 focuses_priority: true,
+                reads_tells: true,
                 pickups: PickupPolicy::Weighed,
                 pickup_reach: 400.0,
                 weapon: WeaponPolicy::Situational,

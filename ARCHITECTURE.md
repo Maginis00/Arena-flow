@@ -81,7 +81,7 @@ and read with `MessageReader`. There are no observers in this slice.
 | `PlayerSpawned` | player | player `spawn_player`, `respawn_on_wave_start` | waves `record_director`, `track_hp`, telemetry |
 | `WeaponSwitched` | weapons | weapons `announce_initial`, `apply_selection` | telemetry |
 | `ShotFired` | weapons | weapons `fire` | combat `resolve_instant_shots`, waves `measure`, debug_render `draw_flashes` |
-| `Hit` | combat | combat `detect_projectile_hits`, `resolve_instant_shots`; enemies `contact_damage`, `bolt_hits` | combat `apply_hits`, waves `measure` (shots_hit), `measure_danger` (contact hits) |
+| `Hit` | combat | combat `detect_projectile_hits`, `resolve_instant_shots`; enemies `contact_damage`, `bolt_hits` | combat `apply_hits`, waves `measure` (shots_hit), `measure_danger` (contact and bolt hits) |
 | `HealGranted` | combat | pickups `collect`, player `refill_on_wave_cleared` | combat `apply_heals` |
 | `PlayerHealed` | combat | combat `apply_heals` | waves `track_hp`, telemetry |
 | `PlayerDamaged` | combat | combat `apply_hits` | waves `track_hp`, `measure`, telemetry |
@@ -148,6 +148,8 @@ the director's levers, so the director still scales them all.
   plugin moves and checks; a bolt reaching the player is a `Hit` with
   `HitSource::EnemyShot`.
 - Chargers stop to wind up, then dash in the direction they locked, then rest.
+  While winding up their `ChargeTell` holds the dash direction: debug_render
+  turns them pale, and bots that read tells step out of the lane.
 - Summoners call in grunts (a `summoned` `EnemySpawned`), a few alive at a time
   and a fixed number over their life, so every wave stays finite. Waves count
   summoned enemies towards the kills needed, but only the wave's own count
@@ -188,7 +190,7 @@ enemies don't show up in it.
 
 Waves also report `Danger`, measured every tick from positions in
 `waves::danger`: close calls (an enemy nearly touched and left without a
-contact hit), approaches that hit, seconds under threat and calm seconds,
+contact hit; enemy bolts count like enemies), approaches that hit, seconds under threat and calm seconds,
 peak crowd and the closest approach. The director doesn't steer on it yet;
 the playtest report shows it next to the risk.
 
@@ -201,9 +203,10 @@ runs `perceive` then `act` in `SimSet::Intent`. The bot only uses what a human
 has: it presses keys in `ButtonInput<KeyCode>` for movement and weapon choice,
 and writes `FireRequested` as the mouse would. It sees the world through a delay
 line of snapshots (reaction time): enemy positions, which of them are
-summoners, enemy bolts and pickups. It dodges bolts like enemies; skilled and
-expert bots shoot a summoner in reach first (and walk to it with melee). Pure parts are split out and unit-tested:
-`steering` (dodge, wall push, eight-way snapping), `choices` (pickup judgement,
+summoners, enemy bolts, chargers' tells and pickups. It dodges bolts like
+enemies; skilled and expert bots shoot a summoner in reach first (and walk to
+it with melee) and sidestep out of a charger's dash lane. Pure parts are split out and unit-tested:
+`steering` (dodge, tell sidestep, wall push, eight-way snapping), `choices` (pickup judgement,
 weapon choice), `perception` (delay line, deterministic rng) and `summary`.
 
 `playtest::play` runs one session; the example runs many side by side, one
