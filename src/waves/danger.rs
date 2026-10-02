@@ -4,7 +4,7 @@
 use super::api::Danger;
 use super::machine::{Approach, WaveMachine};
 use crate::combat::api::{Hit, HitSource, Hitbox};
-use crate::enemies::api::Enemy;
+use crate::enemies::api::{Enemy, EnemyBolt};
 use crate::player::api::Player;
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
@@ -26,13 +26,14 @@ pub(super) fn measure_danger(
     mut machine: ResMut<WaveMachine>,
     mut hits: MessageReader<Hit>,
     player: Option<Single<(&Transform, &Hitbox), With<Player>>>,
-    enemies: Query<(Entity, &Transform, &Hitbox), With<Enemy>>,
+    // Enemy bolts count like enemies: a bolt that grazes past is a close call.
+    enemies: Query<(Entity, &Transform, &Hitbox), Or<(With<Enemy>, With<EnemyBolt>)>>,
 ) {
     let contacts: Vec<Entity> = hits
         .read()
         .filter_map(|hit| match hit.source {
-            HitSource::Contact(enemy) => Some(enemy),
-            HitSource::Shot { .. } | HitSource::EnemyShot(_) | HitSource::Blast => None,
+            HitSource::Contact(enemy) | HitSource::EnemyShot(enemy) => Some(enemy),
+            HitSource::Shot { .. } | HitSource::Blast => None,
         })
         .collect();
     if !machine.in_play() {

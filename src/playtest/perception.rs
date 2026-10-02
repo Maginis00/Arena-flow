@@ -12,6 +12,8 @@ pub struct Snapshot {
     pub priority: Vec<Vec2>,
     /// Enemy bolts in flight.
     pub bolts: Vec<Vec2>,
+    /// Chargers winding up: where they stand and where they will dash.
+    pub tells: Vec<(Vec2, Vec2)>,
     pub pickups: Vec<(Vec2, PickupKind)>,
     /// Shards on the floor (shard pickup rules only).
     pub shards: Vec<Vec2>,

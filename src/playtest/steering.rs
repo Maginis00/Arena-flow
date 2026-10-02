@@ -27,6 +27,28 @@ pub fn dodge(own: Vec2, threats: &[Vec2], radius: f32, strafe: f32) -> Vec2 {
         .sum()
 }
 
+/// Step sideways out of every dash lane: `tells` are a charger's position and
+/// dash direction. Only lanes that point at `own` within `lane` count, and the
+/// push grows the nearer `own` is to the lane's centre line.
+pub fn sidestep(own: Vec2, tells: &[(Vec2, Vec2)], lane: f32) -> Vec2 {
+    if lane <= 0.0 {
+        return Vec2::ZERO;
+    }
+    tells
+        .iter()
+        .filter_map(|(at, aim)| {
+            let offset = own - *at;
+            let along = offset.dot(*aim);
+            let across = aim.perp_dot(offset);
+            (along > 0.0 && across.abs() < lane).then(|| {
+                // Step to the side already nearer; straight on the line, turn left.
+                let side = if across >= 0.0 { 1.0 } else { -1.0 };
+                aim.perp() * side * (1.0 - across.abs() / lane)
+            })
+        })
+        .sum()
+}
+
 /// Push back toward the middle when within `margin` of a wall.
 pub fn wall_push(own: Vec2, half_extents: Vec2, margin: f32) -> Vec2 {
     if margin <= 0.0 {
@@ -90,6 +112,18 @@ mod tests {
     fn strafe_adds_a_sideways_share() {
         let push = dodge(Vec2::ZERO, &[Vec2::new(50.0, 0.0)], 100.0, 1.0);
         assert!(push.x < 0.0 && push.y != 0.0, "{push:?}");
+    }
+
+    #[test]
+    fn sidestep_leaves_the_dash_lane_and_ignores_lanes_pointing_away() {
+        let tell = (Vec2::ZERO, Vec2::X);
+        let left_of_lane = sidestep(Vec2::new(200.0, 10.0), &[tell], 50.0);
+        assert!(
+            left_of_lane.y > 0.0 && left_of_lane.x == 0.0,
+            "{left_of_lane:?}"
+        );
+        assert_eq!(sidestep(Vec2::new(200.0, 80.0), &[tell], 50.0), Vec2::ZERO);
+        assert_eq!(sidestep(Vec2::new(-200.0, 0.0), &[tell], 50.0), Vec2::ZERO);
     }
 
     #[test]

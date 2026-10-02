@@ -16,7 +16,7 @@ use crate::arena::api::ArenaBounds;
 use crate::combat::api::{Hit, HitSource, Hitbox};
 use crate::player::api::Player;
 use crate::waves::api::{WaveCleared, WaveFailed};
-use api::{Enemy, EnemyBolt, EnemyMix, EnemySpawned};
+use api::{ChargeTell, Enemy, EnemyBolt, EnemyMix, EnemySpawned};
 use bevy::prelude::*;
 use movement::Charge;
 
@@ -84,7 +84,16 @@ fn move_enemies(
     time: Res<Time>,
     bounds: Res<ArenaBounds>,
     player: Option<Single<&Transform, (With<Player>, Without<Enemy>)>>,
-    mut enemies: Query<(&mut Transform, &Hitbox, &Chaser, &mut Gait), With<Enemy>>,
+    mut enemies: Query<
+        (
+            &mut Transform,
+            &Hitbox,
+            &Chaser,
+            &mut Gait,
+            Option<&mut ChargeTell>,
+        ),
+        With<Enemy>,
+    >,
 ) {
     // No player (dead, awaiting respawn): enemies hold position.
     let Some(player) = player else {
@@ -92,7 +101,7 @@ fn move_enemies(
     };
     let target = player.translation.truncate();
     let dt = time.delta_secs();
-    for (mut transform, hitbox, chaser, mut gait) in &mut enemies {
+    for (mut transform, hitbox, chaser, mut gait, tell) in &mut enemies {
         let here = transform.translation.truncate();
         let to_player = target - here;
         let heading = match *gait {
@@ -101,6 +110,10 @@ fn move_enemies(
             Gait::Charge(charge) => {
                 let (next, heading) = charge.step(to_player, dt);
                 *gait = Gait::Charge(next);
+                if let Some(mut tell) = tell {
+                    // Only touch it on a change, so readers can use `Changed`.
+                    tell.set_if_neq(ChargeTell { aim: next.tell() });
+                }
                 heading
             }
         };
