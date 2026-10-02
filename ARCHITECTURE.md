@@ -55,7 +55,7 @@ app_setup ◄──┴── every gameplay plugin (SimSet ordering)
 
 arena ──────► (nothing)
 camera ─────► player (Player), arena (ArenaBounds)
-player ─────► arena, combat (Health, Hitbox, Team, PlayerDied), pickups (EffectsChanged), waves (WaveStarted)
+player ─────► arena, combat (Health, Hitbox, Team, PlayerDied, HealGranted), pickups (EffectsChanged), waves (WaveStarted, WaveCleared)
 weapons ────► player (FireRequested), combat (Projectile, Hitbox, Team, ShotId), pickups (EffectsChanged), arena
 combat ─────► weapons (ShotFired, Delivery), pickups (EffectsChanged)
 enemies ────► player (Player), combat (Health, Hitbox, Team, Hit), arena, waves (WaveSpec, WaveStarted, WaveCleared, WaveFailed)
@@ -78,7 +78,7 @@ and read with `MessageReader`. There are no observers in this slice.
 | `WeaponSwitched` | weapons | weapons `announce_initial`, `apply_selection` | telemetry |
 | `ShotFired` | weapons | weapons `fire` | combat `resolve_instant_shots`, waves `measure`, debug_render `draw_flashes` |
 | `Hit` | combat | combat `detect_projectile_hits`, `resolve_instant_shots`; enemies `contact_damage` | combat `apply_hits`, waves `measure` (shots_hit), `measure_danger` (contact hits) |
-| `HealGranted` | combat | pickups `collect` | combat `apply_heals` |
+| `HealGranted` | combat | pickups `collect`, player `refill_on_wave_cleared` | combat `apply_heals` |
 | `PlayerHealed` | combat | combat `apply_heals` | waves `track_hp`, telemetry |
 | `PlayerDamaged` | combat | combat `apply_hits` | waves `track_hp`, `measure`, telemetry |
 | `PlayerDied` | combat | combat `apply_hits` | player `despawn_on_death`, waves `measure`, pickups `clear_on_death` |
@@ -87,7 +87,7 @@ and read with `MessageReader`. There are no observers in this slice.
 | `PickupCollected` | pickups | pickups `collect` | waves `measure`, telemetry |
 | `EffectsChanged` | pickups | pickups `tick_effects` | player, weapons, combat (`track_effects`), telemetry |
 | `WaveStarted` | waves | waves `advance` | enemies `queue_wave`, player `respawn_on_wave_start`, telemetry |
-| `WaveCleared` | waves | waves `advance` | enemies `clear_on_wave_end` |
+| `WaveCleared` | waves | waves `advance` | enemies `clear_on_wave_end`, player `refill_on_wave_cleared` |
 | `WaveFailed` | waves | waves `advance` | enemies `clear_on_wave_end`, pickups `clear_on_death` |
 | `WaveReport` | waves | waves `advance` | flow_director `adjust_after_wave`, telemetry |
 | `DifficultyAdjusted` | flow_director | flow_director `announce_initial` (Startup), `adjust_after_wave` | waves `record_director`, telemetry |
@@ -97,7 +97,10 @@ Notes:
   effects) and write `ShotFired`. Combat decides *what it hits*: projectile
   overlaps each tick, hitscan rays and melee arcs straight from `ShotFired`.
 - `Hit` is the single path for damage and `HealGranted` the single path for
-  healing; only combat changes `Health`.
+  healing; only combat changes `Health`. After damaging the player, combat
+  ignores further hits on the player for a short grace period.
+- A cleared wave refills the player's hp (player writes `HealGranted` during
+  the intermission), so each wave starts at full hp and its risk is its own.
 - Each shot carries a `ShotId`, so a melee swing that hits three enemies counts
   as one landed shot in accuracy.
 - Pickup effects are one combined `Effects` value. Player, weapons and combat
@@ -121,7 +124,7 @@ Notes:
 | 5 | `Resolve` | combat `apply_heals` then `apply_hits` |
 | 6 | `Progress` | waves `record_director` then `track_hp` then `measure` then `measure_danger` then `advance` |
 | 7 | `Direct` | flow_director `adjust_after_wave` |
-| 8 | `Cleanup` | arena `despawn_outside`, enemies `clear_on_wave_end`, player `despawn_on_death` then `respawn_on_wave_start`, pickups `clear_on_death` then `tick_effects` |
+| 8 | `Cleanup` | arena `despawn_outside`, enemies `clear_on_wave_end`, player `despawn_on_death` then `respawn_on_wave_start` then `refill_on_wave_cleared`, pickups `clear_on_death` then `tick_effects` |
 
 A message written by a later set is read by an earlier set on the next tick.
 Bevy only drops messages after `FixedUpdate` has run, so none are missed.

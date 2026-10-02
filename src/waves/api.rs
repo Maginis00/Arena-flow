@@ -62,7 +62,8 @@ pub struct WaveReport {
     /// Contact hits the player took.
     pub hits_taken: u32,
     pub player_max_hp: u32,
-    /// Player hp when the wave came into play (hp carries over between waves).
+    /// Player hp when the wave came into play: full after a cleared wave or a
+    /// respawn, less if a pickup or the intermission changed it.
     pub start_hp: u32,
     /// Lowest player hp while the wave was in play; 0 if the player died.
     pub lowest_hp: u32,
@@ -86,7 +87,8 @@ pub struct Danger {
     /// Close calls weighted by how near each came: 1 for a graze, 0 at the
     /// edge of the close-call ring.
     pub close_call_weight: f32,
-    /// Approaches that ended in at least one contact hit.
+    /// Approaches that touched the player (a contact hit, even one the
+    /// player's grace period absorbed).
     pub hit_approaches: u32,
     /// Seconds some enemy was less than a short reaction time from contact.
     pub threat_secs: f32,

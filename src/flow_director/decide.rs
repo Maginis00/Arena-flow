@@ -71,8 +71,8 @@ pub struct Decision {
 
 /// How close the wave came to killing the player, in `[0, 1]`: the share of
 /// the hp the player brought into the wave that it took away, and 1 if the
-/// player died. Hp carries over between waves, so measuring against the hp
-/// at the start keeps damage from earlier waves out of this wave's reading.
+/// player died. Measuring against the hp at the start keeps anything that
+/// happened before the wave out of this wave's reading.
 pub fn wave_risk(report: &WaveReport) -> f32 {
     if report.player_died || report.start_hp == 0 {
         return 1.0;
