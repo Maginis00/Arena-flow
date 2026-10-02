@@ -83,7 +83,7 @@ pub(super) fn measure(
         .read()
         .filter_map(|hit| match hit.source {
             HitSource::Shot { shot, .. } => Some(shot),
-            HitSource::Contact(_) | HitSource::EnemyShot(_) => None,
+            HitSource::Contact(_) | HitSource::EnemyShot(_) | HitSource::Blast => None,
         })
         .collect();
     if !machine.in_play() {

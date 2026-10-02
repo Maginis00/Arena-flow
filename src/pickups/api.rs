@@ -1,5 +1,67 @@
 use bevy::prelude::*;
 use std::fmt;
+use std::str::FromStr;
+
+/// Which pickup rules a run plays with. `Classic` is the game as it was; the
+/// others are prototypes behind `--pickups` / `ARENA_PICKUPS`.
+#[derive(Resource, Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum PickupRules {
+    /// Timed buffs drop where the enemy died and carry into the next wave.
+    #[default]
+    Classic,
+    /// The same buffs, but thrown away from the player, short-lived, and gone
+    /// when the wave ends: taking one costs a detour.
+    Far,
+    /// No buffs. Kills drop shards; held shards raise fire rate, spending them
+    /// all (Space) blasts everything nearby. Death loses them.
+    Shards,
+    /// Like `Shards`, but kills close to the player drop nothing.
+    ShardsRange,
+}
+
+impl PickupRules {
+    pub const ALL: [Self; 4] = [Self::Classic, Self::Far, Self::Shards, Self::ShardsRange];
+
+    /// Read from `ARENA_PICKUPS`; unset or unknown is `Classic`.
+    pub fn from_env() -> Self {
+        std::env::var("ARENA_PICKUPS")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or_default()
+    }
+
+    pub const fn uses_shards(self) -> bool {
+        matches!(self, Self::Shards | Self::ShardsRange)
+    }
+}
+
+impl fmt::Display for PickupRules {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Self::Classic => "classic",
+            Self::Far => "far",
+            Self::Shards => "shards",
+            Self::ShardsRange => "shards-range",
+        })
+    }
+}
+
+impl FromStr for PickupRules {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::ALL
+            .into_iter()
+            .find(|rules| rules.to_string().eq_ignore_ascii_case(s))
+            .ok_or_else(|| {
+                format!("unknown pickup rules {s:?}; expected classic, far, shards or shards-range")
+            })
+    }
+}
+
+/// A shard on the floor (`Shards` rules). Walk over it to hold it.
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Shard;
 
 /// Every pickup has an upside and a downside. All numbers are PLACEHOLDER.
 #[derive(Component, Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -84,4 +146,18 @@ pub struct EffectsChanged {
 #[derive(Message, Debug, Clone, Copy)]
 pub struct PickupCollected {
     pub kind: PickupKind,
+}
+
+/// The player now holds this many shards (picked one up, spent them, or died).
+#[derive(Message, Debug, Clone, Copy)]
+pub struct ShardsChanged {
+    pub held: u32,
+}
+
+/// The player spent shards on a blast.
+#[derive(Message, Debug, Clone, Copy)]
+pub struct ShardsSpent {
+    pub count: u32,
+    pub at: Vec2,
+    pub radius: f32,
 }

@@ -7,7 +7,7 @@ pub mod api;
 use crate::arena::api::ArenaBounds;
 use crate::combat::api::{Hitbox, Projectile};
 use crate::enemies::api::{ChargeTell, EnemyBolt, EnemyKind};
-use crate::pickups::api::PickupKind;
+use crate::pickups::api::{PickupKind, Shard, ShardsSpent};
 use crate::player::api::Player;
 use crate::weapons::api::{Delivery, ShotFired};
 use bevy::prelude::*;
@@ -29,6 +29,10 @@ const BORDER_THICKNESS: f32 = 4.0;
 const OVERDRIVE_COLOR: Color = Color::srgb(0.2, 1.0, 0.2);
 const HEAVY_COLOR: Color = Color::srgb(0.05, 0.5, 0.1);
 const MEND_COLOR: Color = Color::srgb(0.7, 1.0, 0.7);
+/// Shards and their blast (pickup prototype) are violet.
+const SHARD_COLOR: Color = Color::srgb(0.75, 0.35, 1.0);
+/// How long a shard blast ring stays on screen.
+const BLAST_SECS: f32 = 0.2;
 /// How long a hitscan tracer or melee swing stays on screen.
 const FLASH_SECS: f32 = 0.08;
 /// Line segments used to draw a melee arc.
@@ -45,8 +49,10 @@ impl Plugin for DebugRenderPlugin {
                 (
                     attach_boxes,
                     attach_pickup_boxes,
+                    attach_shard_boxes,
                     show_charge_tells,
                     draw_flashes,
+                    draw_blasts,
                 ),
             );
     }
@@ -124,6 +130,33 @@ fn attach_pickup_boxes(
         };
         insert_box(&mut commands, entity, color, hitbox);
     }
+}
+
+fn attach_shard_boxes(
+    mut commands: Commands,
+    added: Query<(Entity, &Hitbox), (Added<Shard>, Without<Sprite>)>,
+) {
+    for (entity, hitbox) in &added {
+        insert_box(&mut commands, entity, SHARD_COLOR, hitbox);
+    }
+}
+
+/// A ring for each shard blast: centre, radius, seconds left.
+fn draw_blasts(
+    time: Res<Time>,
+    mut spent: MessageReader<ShardsSpent>,
+    mut rings: Local<Vec<(Vec2, f32, f32)>>,
+    mut gizmos: Gizmos,
+) {
+    rings.extend(spent.read().map(|s| (s.at, s.radius, BLAST_SECS)));
+    for (at, radius, _) in rings.iter() {
+        gizmos.circle_2d(*at, *radius, SHARD_COLOR);
+    }
+    let dt = time.delta_secs();
+    rings.retain_mut(|(_, _, left)| {
+        *left -= dt;
+        *left > 0.0
+    });
 }
 
 fn insert_box(commands: &mut Commands, entity: Entity, color: Color, hitbox: &Hitbox) {

@@ -38,7 +38,7 @@ impl PluginGroup for FlowArenaPlugins {
             .add(combat::CombatPlugin)
             .add(weapons::WeaponsPlugin)
             .add(enemies::EnemiesPlugin)
-            .add(pickups::PickupsPlugin)
+            .add(pickups::PickupsPlugin::default())
             .add(waves::WavesPlugin)
             .add(flow_director::FlowDirectorPlugin::default())
             .add(telemetry::TelemetryPlugin)

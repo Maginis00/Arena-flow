@@ -2,13 +2,15 @@
 //! clock, and telemetry's record of what happened.
 
 use super::bot::PlaytestBotPlugin;
-use super::tier::{SkillTier, WeaponPolicy};
+use super::tier::{PickupPolicy, SkillTier, SpendPolicy, WeaponPolicy};
 use crate::FlowArenaPlugins;
 use crate::app_setup::api::FIXED_HZ;
 use crate::debug_render::DebugRenderPlugin;
 use crate::enemies::api::EnemyMix;
 use crate::flow_director::api::Difficulty;
 use crate::flow_director::{DirectorConfig, FlowDirectorPlugin};
+use crate::pickups::PickupsPlugin;
+use crate::pickups::api::PickupRules;
 use crate::telemetry::api::SessionRecord;
 use crate::weapons::api::WeaponKind;
 use bevy::ecs::schedule::SingleThreadedExecutor;
@@ -30,6 +32,12 @@ pub struct SessionConfig {
     pub enemies: EnemyMix,
     /// Play every wave at this difficulty instead of letting the director steer.
     pub pinned: Option<Difficulty>,
+    /// Pickup rule set (prototypes); `Classic` is the game as it ships.
+    pub pickup_rules: PickupRules,
+    /// Walk to pickups this way instead of the tier's own policy.
+    pub pickup_policy: Option<PickupPolicy>,
+    /// Spend shards this way instead of the tier's own policy.
+    pub spend: Option<SpendPolicy>,
 }
 
 /// Run one session to completion and return its log.
@@ -37,6 +45,16 @@ pub fn play(config: SessionConfig) -> SessionRecord {
     let mut params = config.tier.params();
     if let Some(weapon) = config.weapon_lock {
         params.weapon = WeaponPolicy::Fixed(weapon);
+    }
+    if let Some(policy) = config.pickup_policy {
+        params.pickups = policy;
+        // An ignoring tier has no reach; give an overriding policy the casual one.
+        params.pickup_reach = params
+            .pickup_reach
+            .max(SkillTier::Casual.params().pickup_reach);
+    }
+    if let Some(spend) = config.spend {
+        params.spend = spend;
     }
     let director = match config.pinned {
         Some(start) => FlowDirectorPlugin {
@@ -51,7 +69,10 @@ pub fn play(config: SessionConfig) -> SessionRecord {
             FlowArenaPlugins
                 .build()
                 .disable::<DebugRenderPlugin>()
-                .set(director),
+                .set(director)
+                .set(PickupsPlugin {
+                    rules: config.pickup_rules,
+                }),
         )
         .add_plugins(PlaytestBotPlugin {
             params,

@@ -123,6 +123,8 @@ pub enum HitSource {
     Contact(Entity),
     /// An enemy bolt (the entity named) reaching the player.
     EnemyShot(Entity),
+    /// The player's shard blast (pickup prototype).
+    Blast,
 }
 
 /// A confirmed hit that should deal damage. Written by combat (weapon shots)
