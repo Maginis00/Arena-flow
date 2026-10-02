@@ -70,21 +70,23 @@ of stacking. Dying clears all effects.
   (current and next), hp, kills, wave time, weapon, active effects, the
   director's last decision reason, and the last 5 wave reports.
 
-Waves are endless. Dying fails the wave. After the intermission the player
-respawns at the centre and the same wave is retried, at whatever difficulty the
-director chose.
+Waves are endless. Clearing a wave refills your hp. After you take damage you
+can't be hurt again for 0.75 s, so a crowd costs a few hits instead of the whole
+bar at once. Dying fails the wave. After the intermission the player respawns
+at the centre and the same wave is retried, at whatever difficulty the director
+chose.
 
 ## How difficulty moves
 
 After each wave the director reads its risk: the share of the hp the player
-brought into the wave that the wave took away (1 if the player died). Hp
-carries over between waves, so earlier damage does not count again. The risk is
-smoothed over recent waves, then:
+brought into the wave that the wave took away (1 if the player died). The risk
+is smoothed over recent waves and steered into a band around the peak of the
+flow curve (`design/risk-flow-curve.png`, peak at half the hp at stake):
 
 - player died: -1
-- smoothed risk above the band: -0.5
+- smoothed risk above the band (0.65): -0.5
 - inside the band: hold
-- below the band: +0.25
+- below the band (0.35): +0.5
 
 Difficulty runs from 1.0 to 10.0 in quarter steps. Down steps are bigger than up
 steps on purpose: overshooting into danger costs more than staying a little

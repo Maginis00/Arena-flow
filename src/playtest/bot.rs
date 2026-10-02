@@ -31,6 +31,9 @@ const MELEE_PULL: f32 = 0.8;
 /// Enemy bolts closer than this (capped by the tier's dodge radius) push the bot away.
 const BOLT_DODGE_RADIUS: f32 = 120.0;
 const BOLT_DODGE_WEIGHT: f32 = 1.5;
+/// Each decision comes up to this share of `decision_secs` early or late, so
+/// no tier plays like a metronome and seeds differ even when aim never misses.
+const DECISION_JITTER: f32 = 0.3;
 
 /// Plays the game with one tier's limits (see [`SkillTier::params`]).
 /// `seed` varies aim wobble between runs.
@@ -117,7 +120,8 @@ fn act(
 
     brain.until_decision_secs -= time.delta_secs();
     if brain.until_decision_secs <= 0.0 {
-        brain.until_decision_secs += p.decision_secs;
+        brain.until_decision_secs +=
+            p.decision_secs * (1.0 + DECISION_JITTER * brain.rng.signed_unit());
         let hp = health.current() as f32 / health.max().max(1) as f32;
         let weapon = choose_weapon(p.weapon, own, &seen.enemies);
         let wish = movement_wish(&p, weapon, own, seen, hp, bounds.half_extents());

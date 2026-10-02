@@ -15,6 +15,11 @@ use api::{
 };
 use bevy::prelude::*;
 
+/// PLACEHOLDER: seconds after taking damage in which the player can't be hurt
+/// again. A crowd then costs a few hits and a chance to break out instead of
+/// the whole bar at once, so a wave can end half-way to dying.
+const GRACE_SECS: f32 = 0.75;
+
 pub struct CombatPlugin;
 
 impl Plugin for CombatPlugin {
@@ -26,6 +31,7 @@ impl Plugin for CombatPlugin {
             .add_message::<HealGranted>()
             .add_message::<PlayerHealed>()
             .init_resource::<IncomingEffects>()
+            .init_resource::<Grace>()
             .add_systems(FixedUpdate, track_effects.in_set(SimSet::Intent))
             .add_systems(
                 FixedUpdate,
@@ -35,6 +41,26 @@ impl Plugin for CombatPlugin {
                 FixedUpdate,
                 (apply_heals, apply_hits).chain().in_set(SimSet::Resolve),
             );
+    }
+}
+
+/// Time left on the player's grace period after the last damage taken.
+#[derive(Resource, Debug, Default, Clone, Copy, PartialEq)]
+struct Grace {
+    remaining_secs: f32,
+}
+
+impl Grace {
+    fn tick(&mut self, dt: f32) {
+        self.remaining_secs = (self.remaining_secs - dt).max(0.0);
+    }
+
+    fn protects(self) -> bool {
+        self.remaining_secs > 0.0
+    }
+
+    fn start(&mut self) {
+        self.remaining_secs = GRACE_SECS;
     }
 }
 
@@ -171,8 +197,11 @@ fn apply_heals(
     }
 }
 
+#[allow(clippy::too_many_arguments)] // one writer per resolved fact
 fn apply_hits(
     mut commands: Commands,
+    time: Res<Time>,
+    mut grace: ResMut<Grace>,
     effects: Res<IncomingEffects>,
     mut hits: MessageReader<Hit>,
     mut targets: Query<(&mut Health, &Team, &Transform)>,
@@ -180,6 +209,7 @@ fn apply_hits(
     mut player_died: MessageWriter<PlayerDied>,
     mut enemy_killed: MessageWriter<EnemyKilled>,
 ) {
+    grace.tick(time.delta_secs());
     for hit in hits.read() {
         if let HitSource::Shot {
             projectile: Some(projectile),
@@ -197,8 +227,13 @@ fn apply_hits(
         }
         match team {
             Team::Player => {
+                // Also stops several hits in the same tick from stacking.
+                if grace.protects() {
+                    continue;
+                }
                 let applied = health.take(scale_damage(hit.damage, effects.0.incoming_damage));
                 if applied > 0 {
+                    grace.start();
                     player_damaged.write(PlayerDamaged {
                         amount: applied,
                         remaining: health.current(),
@@ -221,5 +256,24 @@ fn apply_hits(
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn grace_protects_until_it_runs_out() {
+        let mut grace = Grace::default();
+        assert!(!grace.protects());
+        grace.start();
+        assert!(grace.protects());
+        grace.tick(GRACE_SECS - 0.01);
+        assert!(grace.protects());
+        grace.tick(0.02);
+        assert!(!grace.protects());
+        grace.tick(1.0);
+        assert_eq!(grace.remaining_secs, 0.0);
     }
 }

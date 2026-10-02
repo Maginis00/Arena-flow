@@ -40,7 +40,7 @@ impl PluginGroup for FlowArenaPlugins {
             .add(enemies::EnemiesPlugin)
             .add(pickups::PickupsPlugin)
             .add(waves::WavesPlugin)
-            .add(flow_director::FlowDirectorPlugin)
+            .add(flow_director::FlowDirectorPlugin::default())
             .add(telemetry::TelemetryPlugin)
             .add(debug_render::DebugRenderPlugin)
     }

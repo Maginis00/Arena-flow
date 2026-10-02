@@ -11,6 +11,7 @@ fn settle_against(tier: SkillTier, enemies: EnemyMix) -> Summary {
         minutes: 4.0,
         weapon_lock: None,
         enemies,
+        pinned: None,
     });
     Summary::of(&log)
 }
