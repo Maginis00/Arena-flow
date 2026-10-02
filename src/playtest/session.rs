@@ -17,6 +17,8 @@ use bevy::ecs::schedule::SingleThreadedExecutor;
 use bevy::input::InputPlugin;
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::thread;
 use std::time::Duration;
 
 /// What to play.
@@ -98,4 +100,37 @@ pub fn play(config: SessionConfig) -> SessionRecord {
     app.world_mut()
         .remove_resource::<SessionRecord>()
         .unwrap_or_default()
+}
+
+/// Sessions are independent and deterministic, so they run side by side, one
+/// worker per core: a thread per session makes the cores fight over Bevy's
+/// shared task pool once a sweep has a hundred sessions.
+pub fn play_many(configs: &[SessionConfig]) -> Vec<SessionRecord> {
+    let workers = thread::available_parallelism().map_or(4, |n| n.get());
+    let next = AtomicUsize::new(0);
+    let mut logs = vec![SessionRecord::default(); configs.len()];
+    let finished: Vec<(usize, SessionRecord)> = thread::scope(|scope| {
+        let handles: Vec<_> = (0..workers)
+            .map(|_| {
+                scope.spawn(|| {
+                    let mut done = Vec::new();
+                    loop {
+                        let i = next.fetch_add(1, Ordering::Relaxed);
+                        let Some(&config) = configs.get(i) else {
+                            return done;
+                        };
+                        done.push((i, play(config)));
+                    }
+                })
+            })
+            .collect();
+        handles
+            .into_iter()
+            .flat_map(|h| h.join().unwrap_or_default())
+            .collect()
+    });
+    for (i, log) in finished {
+        logs[i] = log;
+    }
+    logs
 }

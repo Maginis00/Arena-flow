@@ -152,7 +152,14 @@ fn act(
             keys.press(key);
         }
         brain.aim_offset_rad = brain.rng.wobble() * p.aim_error_deg.to_radians();
-        if wants_to_spend(p.spend, brain.held_shards, hp, own, &seen.enemies) {
+        if wants_to_spend(
+            p.spend,
+            brain.held_shards,
+            hp,
+            own,
+            &seen.enemies,
+            &seen.bolts,
+        ) {
             keys.press(KeyCode::Space);
         }
     }

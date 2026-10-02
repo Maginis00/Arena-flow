@@ -17,10 +17,19 @@ pub enum PickupRules {
     Shards,
     /// Like `Shards`, but kills close to the player drop nothing.
     ShardsRange,
+    /// Like `Shards`, but the blast also destroys enemy bolts inside it, so
+    /// spending answers ranged enemies too.
+    ShardsBolts,
 }
 
 impl PickupRules {
-    pub const ALL: [Self; 4] = [Self::Classic, Self::Far, Self::Shards, Self::ShardsRange];
+    pub const ALL: [Self; 5] = [
+        Self::Classic,
+        Self::Far,
+        Self::Shards,
+        Self::ShardsRange,
+        Self::ShardsBolts,
+    ];
 
     /// Read from `ARENA_PICKUPS`; unset or unknown is `Classic`.
     pub fn from_env() -> Self {
@@ -31,7 +40,7 @@ impl PickupRules {
     }
 
     pub const fn uses_shards(self) -> bool {
-        matches!(self, Self::Shards | Self::ShardsRange)
+        matches!(self, Self::Shards | Self::ShardsRange | Self::ShardsBolts)
     }
 }
 
@@ -42,6 +51,7 @@ impl fmt::Display for PickupRules {
             Self::Far => "far",
             Self::Shards => "shards",
             Self::ShardsRange => "shards-range",
+            Self::ShardsBolts => "shards-bolts",
         })
     }
 }
@@ -54,7 +64,7 @@ impl FromStr for PickupRules {
             .into_iter()
             .find(|rules| rules.to_string().eq_ignore_ascii_case(s))
             .ok_or_else(|| {
-                format!("unknown pickup rules {s:?}; expected classic, far, shards or shards-range")
+                format!("unknown pickup rules {s:?}; expected classic, far, shards, shards-range or shards-bolts")
             })
     }
 }

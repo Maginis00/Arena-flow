@@ -15,30 +15,18 @@ pub enum PickupPolicy {
     Greedy,
     /// Weighs each pickup's downside against the current situation.
     Weighed,
+    /// Goes for any pickup or shard only while no enemy is within this many
+    /// units. A tunable rule for strategy searches.
+    Clear(u16),
 }
 
-/// When a bot spends its shards on a blast (shard pickup rules only).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SpendPolicy {
-    /// Never spends: keeps the fire-rate bonus.
-    Hoard,
-    /// Spends only when a crowd is on top of it or it is about to die.
-    Panic,
-    /// Spends as soon as it can and anything is in range.
-    Eager,
-}
-
-impl FromStr for SpendPolicy {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_ascii_lowercase().as_str() {
-            "hoard" => Ok(Self::Hoard),
-            "panic" => Ok(Self::Panic),
-            "eager" => Ok(Self::Eager),
-            _ => Err(format!(
-                "unknown spend policy {s:?}; expected hoard, panic or eager"
-            )),
+impl fmt::Display for PickupPolicy {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Ignore => f.write_str("ignore"),
+            Self::Greedy => f.write_str("greedy"),
+            Self::Weighed => f.write_str("weighed"),
+            Self::Clear(radius) => write!(f, "clear:{radius}"),
         }
     }
 }
@@ -47,12 +35,102 @@ impl FromStr for PickupPolicy {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_ascii_lowercase().as_str() {
-            "ignore" => Ok(Self::Ignore),
-            "greedy" => Ok(Self::Greedy),
-            "weighed" => Ok(Self::Weighed),
+        let s = s.to_ascii_lowercase();
+        match s.as_str() {
+            "ignore" => return Ok(Self::Ignore),
+            "greedy" => return Ok(Self::Greedy),
+            "weighed" => return Ok(Self::Weighed),
+            _ => {}
+        }
+        s.strip_prefix("clear:")
+            .and_then(|r| r.parse().ok())
+            .map(Self::Clear)
+            .ok_or_else(|| {
+                format!(
+                    "unknown pickup policy {s:?}; expected ignore, greedy, weighed or clear:RADIUS"
+                )
+            })
+    }
+}
+
+/// When a bot spends its shards on a blast (shard pickup rules only).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SpendPolicy {
+    /// Never spends: keeps the fire-rate bonus.
+    Hoard,
+    /// Spends once at least `crowd` threats are in blast reach, or once hp is
+    /// below `low_hp_pct` percent with anything in reach. Threats are enemies,
+    /// plus enemy bolts in flight when `bolts` is set.
+    When {
+        crowd: u8,
+        low_hp_pct: u8,
+        bolts: bool,
+    },
+}
+
+impl SpendPolicy {
+    /// PLACEHOLDER: spends only when a crowd is on top of it or it is about to die.
+    pub const PANIC: Self = Self::When {
+        crowd: 4,
+        low_hp_pct: 40,
+        bolts: false,
+    };
+    /// Spends as soon as it can and anything is in range.
+    pub const EAGER: Self = Self::When {
+        crowd: 1,
+        low_hp_pct: 0,
+        bolts: false,
+    };
+}
+
+impl fmt::Display for SpendPolicy {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match *self {
+            Self::Hoard => f.write_str("hoard"),
+            Self::PANIC => f.write_str("panic"),
+            Self::EAGER => f.write_str("eager"),
+            Self::When {
+                crowd,
+                low_hp_pct,
+                bolts,
+            } => {
+                write!(f, "when:{crowd}:{low_hp_pct}")?;
+                if bolts {
+                    f.write_str(":bolts")?;
+                }
+                Ok(())
+            }
+        }
+    }
+}
+
+impl FromStr for SpendPolicy {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let s = s.to_ascii_lowercase();
+        match s.as_str() {
+            "hoard" => return Ok(Self::Hoard),
+            "panic" => return Ok(Self::PANIC),
+            "eager" => return Ok(Self::EAGER),
+            _ => {}
+        }
+        let mut parts = s.strip_prefix("when:").unwrap_or_default().split(':');
+        let crowd = parts.next().and_then(|n| n.parse().ok());
+        let low_hp_pct = parts.next().and_then(|n| n.parse().ok());
+        let bolts = match parts.next() {
+            None => Some(false),
+            Some("bolts") => Some(true),
+            Some(_) => None,
+        };
+        match (crowd, low_hp_pct, bolts) {
+            (Some(crowd), Some(low_hp_pct), Some(bolts)) => Ok(Self::When {
+                crowd,
+                low_hp_pct,
+                bolts,
+            }),
             _ => Err(format!(
-                "unknown pickup policy {s:?}; expected ignore, greedy or weighed"
+                "unknown spend policy {s:?}; expected hoard, panic, eager or when:CROWD:HP_PCT[:bolts]"
             )),
         }
     }
@@ -124,7 +202,7 @@ impl SkillTier {
                 pickups: PickupPolicy::Ignore,
                 pickup_reach: 0.0,
                 weapon: WeaponPolicy::Fixed(WeaponKind::Projectile),
-                spend: SpendPolicy::Eager,
+                spend: SpendPolicy::EAGER,
             },
             Self::Casual => TierParams {
                 reaction_secs: 0.30,
@@ -139,7 +217,7 @@ impl SkillTier {
                 pickups: PickupPolicy::Greedy,
                 pickup_reach: 200.0,
                 weapon: WeaponPolicy::Fixed(WeaponKind::Projectile),
-                spend: SpendPolicy::Eager,
+                spend: SpendPolicy::EAGER,
             },
             Self::Skilled => TierParams {
                 reaction_secs: 0.20,
@@ -154,7 +232,7 @@ impl SkillTier {
                 pickups: PickupPolicy::Weighed,
                 pickup_reach: 300.0,
                 weapon: WeaponPolicy::Fixed(WeaponKind::Hitscan),
-                spend: SpendPolicy::Panic,
+                spend: SpendPolicy::PANIC,
             },
             Self::Expert => TierParams {
                 reaction_secs: 0.12,
@@ -169,7 +247,7 @@ impl SkillTier {
                 pickups: PickupPolicy::Weighed,
                 pickup_reach: 400.0,
                 weapon: WeaponPolicy::Situational,
-                spend: SpendPolicy::Panic,
+                spend: SpendPolicy::PANIC,
             },
         }
     }
