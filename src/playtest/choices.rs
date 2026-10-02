@@ -40,6 +40,7 @@ pub fn wants_pickup(
             // Double damage, but slow: only when nothing is on top of you.
             PickupKind::Heavy => nearest_threat > DANGER_RADIUS,
         },
+        PickupPolicy::Clear(radius) => nearest_threat > f32::from(radius),
     }
 }
 
@@ -49,6 +50,7 @@ pub fn wants_shard(policy: PickupPolicy, nearest_threat: f32) -> bool {
         PickupPolicy::Ignore => false,
         PickupPolicy::Greedy => true,
         PickupPolicy::Weighed => nearest_threat > DANGER_RADIUS,
+        PickupPolicy::Clear(radius) => nearest_threat > f32::from(radius),
     }
 }
 
@@ -56,10 +58,6 @@ pub fn wants_shard(policy: PickupPolicy, nearest_threat: f32) -> bool {
 /// PLACEHOLDER numbers (fewest shards, smallest radius); update both together.
 const SPEND_MIN: u32 = 3;
 const BLAST_REACH: f32 = 150.0;
-/// PLACEHOLDER: a panicking bot blasts with this many enemies in reach, or
-/// below this share of hp with anything in reach.
-const PANIC_CROWD: usize = 4;
-const PANIC_HP: f32 = 0.4;
 
 /// Spend the held shards on a blast now?
 pub fn wants_to_spend(
@@ -67,19 +65,24 @@ pub fn wants_to_spend(
     held: u32,
     hp_fraction: f32,
     own: Vec2,
-    threats: &[Vec2],
+    enemies: &[Vec2],
+    bolts: &[Vec2],
 ) -> bool {
     if held < SPEND_MIN {
         return false;
     }
-    let in_reach = threats
-        .iter()
-        .filter(|t| t.distance(own) <= BLAST_REACH)
-        .count();
+    let in_reach = |at: &[Vec2]| at.iter().filter(|t| t.distance(own) <= BLAST_REACH).count();
     match policy {
         SpendPolicy::Hoard => false,
-        SpendPolicy::Eager => in_reach > 0,
-        SpendPolicy::Panic => in_reach >= PANIC_CROWD || (hp_fraction < PANIC_HP && in_reach > 0),
+        SpendPolicy::When {
+            crowd,
+            low_hp_pct,
+            bolts: counts_bolts,
+        } => {
+            let in_reach = in_reach(enemies) + if counts_bolts { in_reach(bolts) } else { 0 };
+            in_reach > 0
+                && (in_reach >= usize::from(crowd) || hp_fraction * 100.0 < f32::from(low_hp_pct))
+        }
     }
 }
 
@@ -118,12 +121,42 @@ mod tests {
         let own = Vec2::ZERO;
         let one = [Vec2::X * 50.0];
         let crowd = [Vec2::X * 50.0; 4];
-        assert!(!wants_to_spend(SpendPolicy::Eager, 2, 1.0, own, &crowd));
-        assert!(wants_to_spend(SpendPolicy::Eager, 3, 1.0, own, &one));
-        assert!(!wants_to_spend(SpendPolicy::Panic, 3, 1.0, own, &one));
-        assert!(wants_to_spend(SpendPolicy::Panic, 3, 0.2, own, &one));
-        assert!(wants_to_spend(SpendPolicy::Panic, 3, 1.0, own, &crowd));
-        assert!(!wants_to_spend(SpendPolicy::Hoard, 10, 0.1, own, &crowd));
+        let spend = |policy, held, hp, enemies: &[Vec2], bolts: &[Vec2]| {
+            wants_to_spend(policy, held, hp, own, enemies, bolts)
+        };
+        assert!(!spend(SpendPolicy::EAGER, 2, 1.0, &crowd, &[]));
+        assert!(spend(SpendPolicy::EAGER, 3, 1.0, &one, &[]));
+        assert!(!spend(SpendPolicy::PANIC, 3, 1.0, &one, &[]));
+        assert!(spend(SpendPolicy::PANIC, 3, 0.2, &one, &[]));
+        assert!(spend(SpendPolicy::PANIC, 3, 1.0, &crowd, &[]));
+        assert!(!spend(SpendPolicy::Hoard, 10, 0.1, &crowd, &[]));
+        // Bolts count only for a rule that watches them.
+        let watching = SpendPolicy::When {
+            crowd: 2,
+            low_hp_pct: 0,
+            bolts: true,
+        };
+        assert!(spend(watching, 3, 1.0, &one, &one));
+        assert!(!spend(SpendPolicy::PANIC, 3, 1.0, &one, &crowd));
+    }
+
+    #[test]
+    fn policies_read_back_what_they_print() {
+        for text in [
+            "ignore",
+            "clear:150",
+            "hoard",
+            "panic",
+            "eager",
+            "when:3:40:bolts",
+        ] {
+            let pickup = text.parse::<PickupPolicy>().map(|p| p.to_string());
+            let spend = text.parse::<SpendPolicy>().map(|s| s.to_string());
+            assert!(
+                pickup == Ok(text.to_owned()) || spend == Ok(text.to_owned()),
+                "{text}"
+            );
+        }
     }
 
     #[test]

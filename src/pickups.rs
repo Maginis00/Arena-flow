@@ -12,7 +12,7 @@ mod table;
 use crate::app_setup::api::SimSet;
 use crate::arena::api::ArenaBounds;
 use crate::combat::api::{EnemyKilled, HealGranted, Hit, HitSource, Hitbox, PlayerDied};
-use crate::enemies::api::Enemy;
+use crate::enemies::api::{Enemy, EnemyBolt};
 use crate::player::api::Player;
 use crate::waves::api::{WaveCleared, WaveFailed};
 use api::{
@@ -235,10 +235,12 @@ fn sample_spend(keys: Res<ButtonInput<KeyCode>>, mut input: ResMut<SpendInput>) 
 /// Spend every held shard on a blast around the player, if there are enough.
 #[allow(clippy::too_many_arguments)] // one reader or writer per fact
 fn spend_shards(
+    mut commands: Commands,
     mut input: ResMut<SpendInput>,
     rules: Res<PickupRules>,
     player: Option<Single<&Transform, With<Player>>>,
     enemies: Query<(Entity, &Transform), With<Enemy>>,
+    bolts: Query<(Entity, &Transform), With<EnemyBolt>>,
     mut effects: ResMut<ActiveEffects>,
     mut hits: MessageWriter<Hit>,
     mut changed: MessageWriter<ShardsChanged>,
@@ -262,6 +264,13 @@ fn spend_shards(
                 damage: shards::BLAST_DAMAGE,
                 source: HitSource::Blast,
             });
+        }
+    }
+    if *rules == PickupRules::ShardsBolts {
+        for (bolt, transform) in &bolts {
+            if transform.translation.truncate().distance(at) <= radius {
+                commands.entity(bolt).try_despawn();
+            }
         }
     }
     effects.held_shards = 0;
