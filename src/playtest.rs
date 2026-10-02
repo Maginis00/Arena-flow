@@ -28,7 +28,7 @@ pub use agent::{AgentRun, replay};
 pub use agent_order::Order;
 pub use agent_view::{Feel, journal, render};
 pub use bot::PlaytestBotPlugin;
-pub use report::{Named, pickup_table, table, weapon_table};
+pub use report::{Named, flow_table, pickup_table, table, weapon_table};
 pub use session::{SessionConfig, play};
 pub use summary::Summary;
 pub use tier::{HandSkill, PickupPolicy, SkillTier, TierParams, WeaponPolicy, hand_skill};

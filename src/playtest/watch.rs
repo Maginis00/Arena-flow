@@ -9,6 +9,7 @@ use super::tier::{SkillTier, WeaponPolicy};
 use super::tiling::Quadrant;
 use super::work_area::primary_work_area;
 use crate::FlowArenaPlugins;
+use crate::enemies::api::EnemyMix;
 use crate::flow_director::api::{DecisionReason, Difficulty, DifficultyAdjusted};
 use crate::telemetry::api::{OverlayEnabled, SessionFileEnabled};
 use crate::waves::api::{WaveIndex, WaveStarted};
@@ -25,6 +26,8 @@ pub struct WatchConfig {
     pub weapon: Option<WeaponKind>,
     /// Fill this quarter of the screen instead of a normal 1280x720 window.
     pub quadrant: Option<Quadrant>,
+    /// Which enemy kinds the waves hold.
+    pub enemies: EnemyMix,
 }
 
 /// Open the game window with a bot at the controls; returns when it closes.
@@ -51,6 +54,7 @@ pub fn watch(config: WatchConfig) -> AppExit {
             params,
             seed: config.seed,
         })
+        .insert_resource(config.enemies)
         .insert_resource(SessionFileEnabled(false))
         // A quarter screen has room for the bot's label only.
         .insert_resource(OverlayEnabled(config.quadrant.is_none()))

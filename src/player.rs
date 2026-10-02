@@ -1,4 +1,5 @@
-//! Player spawn, movement, mouse aim and fire intent.
+//! Player spawn, movement, mouse aim and fire intent, and a full refill after
+//! each cleared wave.
 //!
 //! Input is sampled in `Update` into [`PlayerInput`]; the simulation reads that
 //! snapshot in `FixedUpdate`.
@@ -7,9 +8,9 @@ pub mod api;
 
 use crate::app_setup::api::SimSet;
 use crate::arena::api::ArenaBounds;
-use crate::combat::api::{Health, Hitbox, PlayerDied, Team};
+use crate::combat::api::{HealGranted, Health, Hitbox, PlayerDied, Team};
 use crate::pickups::api::{Effects, EffectsChanged};
-use crate::waves::api::WaveStarted;
+use crate::waves::api::{WaveCleared, WaveStarted};
 use api::{FireRequested, Player, PlayerSpawned};
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
@@ -38,7 +39,11 @@ impl Plugin for PlayerPlugin {
             .add_systems(FixedUpdate, move_player.in_set(SimSet::Movement))
             .add_systems(
                 FixedUpdate,
-                (despawn_on_death, respawn_on_wave_start)
+                (
+                    despawn_on_death,
+                    respawn_on_wave_start,
+                    refill_on_wave_cleared,
+                )
                     .chain()
                     .in_set(SimSet::Cleanup),
             );
@@ -156,6 +161,25 @@ fn request_fire(
 fn despawn_on_death(mut commands: Commands, mut died: MessageReader<PlayerDied>) {
     for death in died.read() {
         commands.entity(death.player).try_despawn();
+    }
+}
+
+/// A cleared wave refills the player's hp for the next one, so every wave
+/// starts from the same footing and its risk is its own.
+fn refill_on_wave_cleared(
+    mut cleared: MessageReader<WaveCleared>,
+    player: Query<Entity, With<Player>>,
+    mut heals: MessageWriter<HealGranted>,
+) {
+    // Only the fact that a wave was cleared matters, not how many.
+    if cleared.read().count() == 0 {
+        return;
+    }
+    for target in &player {
+        heals.write(HealGranted {
+            target,
+            amount: PLAYER_MAX_HP,
+        });
     }
 }
 

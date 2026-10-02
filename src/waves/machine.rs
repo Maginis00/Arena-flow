@@ -2,10 +2,10 @@
 //! [`super::transitions`] moves it between phases, [`super::measure`] fills the
 //! stats.
 
-use super::api::{WaveIndex, WaveSpec};
+use super::api::{Danger, WaveIndex, WaveSpec};
 use crate::combat::api::ShotId;
 use crate::flow_director::api::{Difficulty, WaveLevers};
-use bevy::platform::collections::HashSet;
+use bevy::platform::collections::{HashMap, HashSet};
 use bevy::prelude::*;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -31,7 +31,11 @@ pub(super) enum WavePhase {
 #[derive(Debug, Clone, Default)]
 pub(super) struct WaveStats {
     pub(super) duration_secs: f32,
+    /// Every enemy that entered, summoned ones included.
     pub(super) enemies_spawned: u32,
+    /// Enemies from the wave's own count; the wave is spawning until these
+    /// reach `WaveSpec::enemy_count`.
+    pub(super) queued_spawned: u32,
     pub(super) enemies_killed: u32,
     pub(super) damage_taken: u32,
     pub(super) hits_taken: u32,
@@ -43,6 +47,16 @@ pub(super) struct WaveStats {
     /// Distinct shots that hit something; a melee swing hitting three counts once.
     pub(super) shots_hit: HashSet<ShotId>,
     pub(super) pickups_collected: u32,
+    pub(super) danger: Danger,
+    /// Enemies inside the close-call ring right now, and how their approach went.
+    pub(super) approaches: HashMap<Entity, Approach>,
+}
+
+/// One enemy's current pass through the close-call ring.
+#[derive(Debug, Clone, Copy)]
+pub(super) struct Approach {
+    pub(super) nearest_gap: f32,
+    pub(super) hit: bool,
 }
 
 #[derive(Resource, Debug)]

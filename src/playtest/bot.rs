@@ -11,7 +11,7 @@ use super::tier::{PickupPolicy, TierParams};
 use crate::app_setup::api::{FIXED_HZ, SimSet};
 use crate::arena::api::ArenaBounds;
 use crate::combat::api::Health;
-use crate::enemies::api::Enemy;
+use crate::enemies::api::{Enemy, EnemyBolt, EnemyKind};
 use crate::pickups::api::PickupKind;
 use crate::player::api::{FireRequested, Player};
 use crate::weapons::api::WeaponKind;
@@ -28,6 +28,12 @@ const CENTRE_DRIFT: f32 = 0.3;
 const MELEE_DODGE_RADIUS: f32 = 45.0;
 const MELEE_STANDOFF: f32 = 200.0;
 const MELEE_PULL: f32 = 0.8;
+/// Enemy bolts closer than this (capped by the tier's dodge radius) push the bot away.
+const BOLT_DODGE_RADIUS: f32 = 120.0;
+const BOLT_DODGE_WEIGHT: f32 = 1.5;
+/// Each decision comes up to this share of `decision_secs` early or late, so
+/// no tier plays like a metronome and seeds differ even when aim never misses.
+const DECISION_JITTER: f32 = 0.3;
 
 /// Plays the game with one tier's limits (see [`SkillTier::params`]).
 /// `seed` varies aim wobble between runs.
@@ -70,11 +76,21 @@ impl Brain {
 
 fn perceive(
     mut brain: ResMut<Brain>,
-    enemies: Query<&Transform, With<Enemy>>,
+    enemies: Query<(&Transform, &EnemyKind), With<Enemy>>,
+    bolts: Query<&Transform, With<EnemyBolt>>,
     pickups: Query<(&Transform, &PickupKind)>,
 ) {
     brain.view.push(Snapshot {
-        enemies: enemies.iter().map(|t| t.translation.truncate()).collect(),
+        enemies: enemies
+            .iter()
+            .map(|(t, _)| t.translation.truncate())
+            .collect(),
+        priority: enemies
+            .iter()
+            .filter(|(_, kind)| **kind == EnemyKind::Summoner)
+            .map(|(t, _)| t.translation.truncate())
+            .collect(),
+        bolts: bolts.iter().map(|t| t.translation.truncate()).collect(),
         pickups: pickups
             .iter()
             .map(|(t, kind)| (t.translation.truncate(), *kind))
@@ -104,7 +120,8 @@ fn act(
 
     brain.until_decision_secs -= time.delta_secs();
     if brain.until_decision_secs <= 0.0 {
-        brain.until_decision_secs += p.decision_secs;
+        brain.until_decision_secs +=
+            p.decision_secs * (1.0 + DECISION_JITTER * brain.rng.signed_unit());
         let hp = health.current() as f32 / health.max().max(1) as f32;
         let weapon = choose_weapon(p.weapon, own, &seen.enemies);
         let wish = movement_wish(&p, weapon, own, seen, hp, bounds.half_extents());
@@ -118,7 +135,9 @@ fn act(
         brain.aim_offset_rad = brain.rng.wobble() * p.aim_error_deg.to_radians();
     }
 
-    let Some(target) = nearest(own, seen.enemies.iter().copied()) else {
+    let priority = nearest(own, seen.priority.iter().copied())
+        .filter(|t| p.focuses_priority && t.distance(own) <= reach(brain.weapon));
+    let Some(target) = priority.or_else(|| nearest(own, seen.enemies.iter().copied())) else {
         return;
     };
     if p.trigger_discipline && target.distance(own) > reach(brain.weapon) {
@@ -146,13 +165,21 @@ fn movement_wish(
     let threat_distance = threat.map_or(f32::INFINITY, |t| t.distance(own));
     // With melee a player has to let enemies in: dodge only what is nearly
     // touching, and close the gap if everything is far away.
+    // A bot that focuses priority targets walks right up to a summoner instead.
+    let priority = nearest(own, seen.priority.iter().copied()).filter(|_| p.focuses_priority);
     let (dodge_radius, engage) = if weapon == WeaponKind::Melee {
-        (p.dodge_radius.min(MELEE_DODGE_RADIUS), threat)
+        let engage = match priority {
+            Some(target) => Some((target, reach(weapon) * 0.5)),
+            None => threat.map(|target| (target, MELEE_STANDOFF)),
+        };
+        (p.dodge_radius.min(MELEE_DODGE_RADIUS), engage)
     } else {
         (p.dodge_radius, None)
     };
     let mut wish = dodge(own, &seen.enemies, dodge_radius, p.strafe);
-    if let Some(target) = engage.filter(|t| t.distance(own) > MELEE_STANDOFF) {
+    let bolt_radius = p.dodge_radius.min(BOLT_DODGE_RADIUS);
+    wish += dodge(own, &seen.bolts, bolt_radius, p.strafe) * BOLT_DODGE_WEIGHT;
+    if let Some((target, _)) = engage.filter(|(t, standoff)| t.distance(own) > *standoff) {
         wish += (target - own).normalize_or_zero() * MELEE_PULL;
     }
     if p.avoids_walls {

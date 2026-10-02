@@ -121,10 +121,12 @@ pub enum HitSource {
     },
     /// An enemy touching the player.
     Contact(Entity),
+    /// An enemy bolt (the entity named) reaching the player.
+    EnemyShot(Entity),
 }
 
 /// A confirmed hit that should deal damage. Written by combat (weapon shots)
-/// and enemies (contact); applied by combat.
+/// and enemies (contact, bolts); applied by combat.
 #[derive(Message, Debug, Clone, Copy)]
 pub struct Hit {
     pub target: Entity,
