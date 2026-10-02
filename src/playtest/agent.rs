@@ -174,6 +174,8 @@ fn act(
             .iter()
             .map(|(t, kind)| (t.translation.truncate(), *kind))
             .collect(),
+        // The hands only aim; summoners and bolts are the agent's to read.
+        ..Snapshot::default()
     });
     let Some(order) = hands.orders.get(hands.index).copied() else {
         hold_keys(&mut keys, (0, 0));
