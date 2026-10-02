@@ -8,6 +8,10 @@ use std::collections::VecDeque;
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Snapshot {
     pub enemies: Vec<Vec2>,
+    /// Enemies worth shooting first (summoners), also listed in `enemies`.
+    pub priority: Vec<Vec2>,
+    /// Enemy bolts in flight.
+    pub bolts: Vec<Vec2>,
     pub pickups: Vec<(Vec2, PickupKind)>,
     /// Shards on the floor (shard pickup rules only).
     pub shards: Vec<Vec2>,
@@ -31,6 +35,14 @@ impl DelayedView {
 
     pub fn push(&mut self, snapshot: Snapshot) {
         self.buffer.push_back(snapshot);
+        while self.buffer.len() > self.delay_ticks + 1 {
+            self.buffer.pop_front();
+        }
+    }
+
+    /// Change the reaction time. A longer delay fills up from the frames kept.
+    pub fn set_delay(&mut self, delay_ticks: usize) {
+        self.delay_ticks = delay_ticks;
         while self.buffer.len() > self.delay_ticks + 1 {
             self.buffer.pop_front();
         }
@@ -75,7 +87,7 @@ mod tests {
     fn with_enemy(x: f32) -> Snapshot {
         Snapshot {
             enemies: vec![Vec2::new(x, 0.0)],
-            ..Default::default()
+            ..Snapshot::default()
         }
     }
 
@@ -86,6 +98,16 @@ mod tests {
             view.push(with_enemy(x as f32));
         }
         assert_eq!(view.seen(), Some(&with_enemy(2.0)));
+    }
+
+    #[test]
+    fn a_shorter_delay_sees_a_newer_frame_at_once() {
+        let mut view = DelayedView::new(3);
+        for x in 0..5 {
+            view.push(with_enemy(x as f32));
+        }
+        view.set_delay(1);
+        assert_eq!(view.seen(), Some(&with_enemy(3.0)));
     }
 
     #[test]

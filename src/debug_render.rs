@@ -6,14 +6,20 @@ pub mod api;
 
 use crate::arena::api::ArenaBounds;
 use crate::combat::api::{Hitbox, Projectile};
-use crate::enemies::api::Enemy;
+use crate::enemies::api::{EnemyBolt, EnemyKind};
 use crate::pickups::api::{PickupKind, Shard, ShardsSpent};
 use crate::player::api::Player;
 use crate::weapons::api::{Delivery, ShotFired};
 use bevy::prelude::*;
 
 const PLAYER_COLOR: Color = Color::srgb(0.0, 0.9, 0.9);
-const ENEMY_COLOR: Color = Color::srgb(0.9, 0.15, 0.15);
+/// Enemies are red to purple; the shade and size tell the kinds apart.
+const GRUNT_COLOR: Color = Color::srgb(0.9, 0.15, 0.15);
+const SHOOTER_COLOR: Color = Color::srgb(1.0, 0.45, 0.1);
+const BRUTE_COLOR: Color = Color::srgb(0.55, 0.05, 0.05);
+const CHARGER_COLOR: Color = Color::srgb(1.0, 0.3, 0.55);
+const SUMMONER_COLOR: Color = Color::srgb(0.6, 0.2, 0.9);
+const BOLT_COLOR: Color = Color::srgb(1.0, 0.55, 0.2);
 const PROJECTILE_COLOR: Color = Color::srgb(1.0, 0.9, 0.1);
 const BORDER_COLOR: Color = Color::srgb(0.3, 0.3, 0.32);
 const BORDER_THICKNESS: f32 = 4.0;
@@ -61,21 +67,38 @@ struct Flash {
 struct Flashes(Vec<Flash>);
 
 type NewVisible = (
-    Or<(Added<Player>, Added<Enemy>, Added<Projectile>)>,
+    Or<(
+        Added<Player>,
+        Added<EnemyKind>,
+        Added<Projectile>,
+        Added<EnemyBolt>,
+    )>,
     Without<Sprite>,
 );
 
 fn attach_boxes(
     mut commands: Commands,
-    added: Query<(Entity, &Hitbox, Has<Player>, Has<Enemy>), NewVisible>,
+    added: Query<
+        (
+            Entity,
+            &Hitbox,
+            Has<Player>,
+            Option<&EnemyKind>,
+            Has<EnemyBolt>,
+        ),
+        NewVisible,
+    >,
 ) {
-    for (entity, hitbox, is_player, is_enemy) in &added {
-        let color = if is_player {
-            PLAYER_COLOR
-        } else if is_enemy {
-            ENEMY_COLOR
-        } else {
-            PROJECTILE_COLOR
+    for (entity, hitbox, is_player, kind, is_bolt) in &added {
+        let color = match (is_player, kind, is_bolt) {
+            (true, ..) => PLAYER_COLOR,
+            (_, Some(EnemyKind::Grunt), _) => GRUNT_COLOR,
+            (_, Some(EnemyKind::Shooter), _) => SHOOTER_COLOR,
+            (_, Some(EnemyKind::Brute), _) => BRUTE_COLOR,
+            (_, Some(EnemyKind::Charger), _) => CHARGER_COLOR,
+            (_, Some(EnemyKind::Summoner), _) => SUMMONER_COLOR,
+            (_, None, true) => BOLT_COLOR,
+            (_, None, false) => PROJECTILE_COLOR,
         };
         insert_box(&mut commands, entity, color, hitbox);
     }

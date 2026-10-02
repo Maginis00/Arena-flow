@@ -69,7 +69,11 @@ pub(super) fn measure(
     mut hits: MessageReader<Hit>,
     mut pickups: MessageReader<PickupCollected>,
 ) {
-    let spawned = count(enemy_spawned.read().count());
+    let (mut spawned, mut queued) = (0, 0);
+    for enemy in enemy_spawned.read() {
+        spawned += 1;
+        queued += u32::from(!enemy.summoned);
+    }
     let killed = count(enemy_killed.read().count());
     let damage: u32 = player_damaged.read().map(|d| d.amount).sum();
     let died = player_died.read().count() > 0;
@@ -79,7 +83,7 @@ pub(super) fn measure(
         .read()
         .filter_map(|hit| match hit.source {
             HitSource::Shot { shot, .. } => Some(shot),
-            HitSource::Contact(_) | HitSource::Blast => None,
+            HitSource::Contact(_) | HitSource::EnemyShot(_) | HitSource::Blast => None,
         })
         .collect();
     if !machine.in_play() {
@@ -89,6 +93,7 @@ pub(super) fn measure(
     stats.shots_hit.extend(landed);
     stats.duration_secs += time.delta_secs();
     stats.enemies_spawned = stats.enemies_spawned.saturating_add(spawned);
+    stats.queued_spawned = stats.queued_spawned.saturating_add(queued);
     stats.enemies_killed = stats.enemies_killed.saturating_add(killed);
     stats.damage_taken = stats.damage_taken.saturating_add(damage);
     stats.player_died |= died;

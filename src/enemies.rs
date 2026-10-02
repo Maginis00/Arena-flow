@@ -1,54 +1,62 @@
-//! Enemy spawning from a wave spec (outside a safe radius around the player), chasing the player, and contact damage.
+//! Enemy spawning from a wave spec (outside a safe radius around the player),
+//! movement per kind, contact damage, and the ranged and summoning attacks.
+//!
+//! Which kinds a wave holds comes from [`EnemyMix`](api::EnemyMix); the grunt
+//! mix is the original game.
 
 pub mod api;
+mod attacks;
+mod kinds;
+mod movement;
 mod placement;
+mod spawning;
 
 use crate::app_setup::api::SimSet;
 use crate::arena::api::ArenaBounds;
-use crate::combat::api::{Health, Hit, HitSource, Hitbox, Team};
+use crate::combat::api::{Hit, HitSource, Hitbox};
 use crate::player::api::Player;
-use crate::waves::api::{WaveCleared, WaveFailed, WaveSpec, WaveStarted};
-use api::{Enemy, EnemySpawned};
+use crate::waves::api::{WaveCleared, WaveFailed};
+use api::{Enemy, EnemyBolt, EnemyMix, EnemySpawned};
 use bevy::prelude::*;
+use movement::Charge;
 
-/// PLACEHOLDER: seconds between enemy spawns within a wave.
-const SPAWN_INTERVAL_SECS: f32 = 0.35;
-/// PLACEHOLDER: enemy hit points (not a difficulty lever in v1).
-const ENEMY_MAX_HP: u32 = 3;
-/// PLACEHOLDER: enemy box half-size.
-const ENEMY_HALF_SIZE: f32 = 12.0;
 /// PLACEHOLDER: seconds between contact hits from one enemy.
 const CONTACT_COOLDOWN_SECS: f32 = 0.75;
-/// Spawn positions walk the perimeter by the golden ratio so consecutive
-/// enemies are spread out deterministically (no RNG in the harness).
-const SPAWN_STEP: f32 = 0.618_034;
-/// PLACEHOLDER: enemies never appear closer than this to the player.
-const SPAWN_SAFE_RADIUS: f32 = 200.0;
 
 pub struct EnemiesPlugin;
 
 impl Plugin for EnemiesPlugin {
     fn build(&self, app: &mut App) {
+        let mix = std::env::var(EnemyMix::ENV_VAR)
+            .ok()
+            .and_then(|name| name.parse().ok())
+            .unwrap_or_default();
         app.add_message::<EnemySpawned>()
-            .init_resource::<SpawnQueue>()
+            .insert_resource::<EnemyMix>(mix)
+            .init_resource::<spawning::SpawnQueue>()
             .add_systems(
                 FixedUpdate,
-                (queue_wave, spawn_from_queue).chain().in_set(SimSet::Spawn),
+                (
+                    spawning::queue_wave,
+                    spawning::spawn_from_queue,
+                    attacks::summon,
+                    attacks::shoot,
+                )
+                    .chain()
+                    .in_set(SimSet::Spawn),
             )
-            .add_systems(FixedUpdate, chase_player.in_set(SimSet::Movement))
-            .add_systems(FixedUpdate, contact_damage.in_set(SimSet::Detect))
+            .add_systems(
+                FixedUpdate,
+                (move_enemies, attacks::move_bolts).in_set(SimSet::Movement),
+            )
+            .add_systems(
+                FixedUpdate,
+                (contact_damage, attacks::bolt_hits)
+                    .chain()
+                    .in_set(SimSet::Detect),
+            )
             .add_systems(FixedUpdate, clear_on_wave_end.in_set(SimSet::Cleanup));
     }
-}
-
-/// Enemies still to spawn for the current wave.
-#[derive(Resource, Debug, Default)]
-struct SpawnQueue {
-    spec: Option<WaveSpec>,
-    remaining: u32,
-    until_next_secs: f32,
-    /// Monotonic across waves so spawn points keep rotating.
-    spawn_cursor: u32,
 }
 
 /// Per-enemy tuning copied from the wave spec at spawn time.
@@ -58,68 +66,25 @@ struct Chaser {
     contact_damage: u32,
 }
 
+/// How an enemy moves; see [`movement`].
+#[derive(Component, Debug, Clone, Copy)]
+enum Gait {
+    Chase,
+    HoldRange { range: f32, orbit: f32 },
+    Charge(Charge),
+}
+
 /// Seconds until this enemy may deal contact damage again.
 #[derive(Component, Debug, Clone, Copy, Default)]
 struct ContactCooldown {
     remaining_secs: f32,
 }
 
-fn queue_wave(mut started: MessageReader<WaveStarted>, mut queue: ResMut<SpawnQueue>) {
-    for started in started.read() {
-        queue.spec = Some(started.spec);
-        queue.remaining = started.spec.enemy_count;
-        queue.until_next_secs = 0.0;
-    }
-}
-
-fn spawn_from_queue(
-    mut commands: Commands,
+fn move_enemies(
     time: Res<Time>,
     bounds: Res<ArenaBounds>,
-    player: Option<Single<&Transform, With<Player>>>,
-    mut queue: ResMut<SpawnQueue>,
-    mut spawned: MessageWriter<EnemySpawned>,
-) {
-    let Some(spec) = queue.spec else {
-        return;
-    };
-    if queue.remaining == 0 {
-        return;
-    }
-    queue.until_next_secs -= time.delta_secs();
-    if queue.until_next_secs > 0.0 {
-        return;
-    }
-    queue.until_next_secs += SPAWN_INTERVAL_SECS;
-    queue.remaining -= 1;
-    queue.spawn_cursor = queue.spawn_cursor.wrapping_add(1);
-
-    // u32 -> f32 loses precision only past 2^24 spawns; fine for a spread pattern.
-    let t = queue.spawn_cursor as f32 * SPAWN_STEP;
-    let candidate = bounds.perimeter_point(t, ENEMY_HALF_SIZE * 2.0);
-    let player_at = player.map(|p| p.translation.truncate());
-    let at = placement::spawn_point(candidate, player_at, SPAWN_SAFE_RADIUS);
-    let enemy = commands
-        .spawn((
-            Enemy,
-            Team::Enemy,
-            Health::full(ENEMY_MAX_HP),
-            Hitbox::square(ENEMY_HALF_SIZE),
-            Chaser {
-                speed: spec.enemy_speed,
-                contact_damage: spec.contact_damage,
-            },
-            ContactCooldown::default(),
-            Transform::from_translation(at.extend(0.5)),
-        ))
-        .id();
-    spawned.write(EnemySpawned { enemy });
-}
-
-fn chase_player(
-    time: Res<Time>,
     player: Option<Single<&Transform, (With<Player>, Without<Enemy>)>>,
-    mut enemies: Query<(&mut Transform, &Chaser), With<Enemy>>,
+    mut enemies: Query<(&mut Transform, &Hitbox, &Chaser, &mut Gait), With<Enemy>>,
 ) {
     // No player (dead, awaiting respawn): enemies hold position.
     let Some(player) = player else {
@@ -127,10 +92,25 @@ fn chase_player(
     };
     let target = player.translation.truncate();
     let dt = time.delta_secs();
-    for (mut transform, chaser) in &mut enemies {
+    for (mut transform, hitbox, chaser, mut gait) in &mut enemies {
         let here = transform.translation.truncate();
-        let step = (target - here).normalize_or_zero() * chaser.speed * dt;
-        transform.translation += step.extend(0.0);
+        let to_player = target - here;
+        let heading = match *gait {
+            Gait::Chase => movement::chase(to_player),
+            Gait::HoldRange { range, orbit } => movement::hold_range(to_player, range, orbit),
+            Gait::Charge(charge) => {
+                let (next, heading) = charge.step(to_player, dt);
+                *gait = Gait::Charge(next);
+                heading
+            }
+        };
+        let next = here + heading * chaser.speed * dt;
+        // Chasers head inward anyway; this keeps ranged kinds and dashes in.
+        let next = match *gait {
+            Gait::Chase => next,
+            Gait::HoldRange { .. } | Gait::Charge(_) => bounds.clamp(next, hitbox.half_extents),
+        };
+        transform.translation = next.extend(transform.translation.z);
     }
 }
 
@@ -164,13 +144,14 @@ fn contact_damage(
     }
 }
 
-/// When a wave ends either way, remaining enemies and queued spawns go away.
+/// When a wave ends either way, remaining enemies, their bolts and queued
+/// spawns go away.
 fn clear_on_wave_end(
     mut commands: Commands,
     mut cleared: MessageReader<WaveCleared>,
     mut failed: MessageReader<WaveFailed>,
-    mut queue: ResMut<SpawnQueue>,
-    enemies: Query<Entity, With<Enemy>>,
+    mut queue: ResMut<spawning::SpawnQueue>,
+    leftovers: Query<Entity, Or<(With<Enemy>, With<EnemyBolt>)>>,
 ) {
     let ended = cleared.read().count() + failed.read().count();
     if ended == 0 {
@@ -178,7 +159,7 @@ fn clear_on_wave_end(
     }
     queue.spec = None;
     queue.remaining = 0;
-    for enemy in &enemies {
-        commands.entity(enemy).try_despawn();
+    for entity in &leftovers {
+        commands.entity(entity).try_despawn();
     }
 }

@@ -85,6 +85,8 @@ pub struct TierParams {
     pub avoids_walls: bool,
     /// Only fires when the target is within the weapon's reach.
     pub trigger_discipline: bool,
+    /// Shoots a summoner in reach before the nearest enemy.
+    pub focuses_priority: bool,
     pub pickups: PickupPolicy,
     /// How far the bot will walk for a pickup.
     pub pickup_reach: f32,
@@ -115,6 +117,7 @@ impl SkillTier {
                 strafe: 0.0,
                 avoids_walls: false,
                 trigger_discipline: false,
+                focuses_priority: false,
                 pickups: PickupPolicy::Ignore,
                 pickup_reach: 0.0,
                 weapon: WeaponPolicy::Fixed(WeaponKind::Projectile),
@@ -128,6 +131,7 @@ impl SkillTier {
                 strafe: 0.3,
                 avoids_walls: false,
                 trigger_discipline: false,
+                focuses_priority: false,
                 pickups: PickupPolicy::Greedy,
                 pickup_reach: 200.0,
                 weapon: WeaponPolicy::Fixed(WeaponKind::Projectile),
@@ -141,6 +145,7 @@ impl SkillTier {
                 strafe: 0.7,
                 avoids_walls: true,
                 trigger_discipline: true,
+                focuses_priority: true,
                 pickups: PickupPolicy::Weighed,
                 pickup_reach: 300.0,
                 weapon: WeaponPolicy::Fixed(WeaponKind::Hitscan),
@@ -154,12 +159,51 @@ impl SkillTier {
                 strafe: 1.0,
                 avoids_walls: true,
                 trigger_discipline: true,
+                focuses_priority: true,
                 pickups: PickupPolicy::Weighed,
                 pickup_reach: 400.0,
                 weapon: WeaponPolicy::Situational,
                 spend: SpendPolicy::Panic,
             },
         }
+    }
+}
+
+/// The part of a tier that is a player's hands rather than their choices.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct HandSkill {
+    pub reaction_secs: f32,
+    pub decision_secs: f32,
+    pub aim_error_deg: f32,
+}
+
+/// Highest hand skill level: the expert tier.
+pub const MAX_HAND_SKILL: f32 = (SkillTier::ALL.len() - 1) as f32;
+
+/// Hands at a skill level on the tier scale: 0 novice, 1 casual, 2 skilled,
+/// 3 expert. Levels in between blend the two neighbouring tiers linearly, so
+/// a simulated player can improve gradually.
+pub fn hand_skill(level: f32) -> HandSkill {
+    let level = level.clamp(0.0, MAX_HAND_SKILL);
+    // In range by the clamp above.
+    let lower = (level.floor() as usize).min(SkillTier::ALL.len() - 2);
+    let t = level - lower as f32;
+    let (a, b) = (
+        SkillTier::ALL[lower].params(),
+        SkillTier::ALL[lower + 1].params(),
+    );
+    let mix = |x: f32, y: f32| x + (y - x) * t;
+    HandSkill {
+        reaction_secs: mix(a.reaction_secs, b.reaction_secs),
+        decision_secs: mix(a.decision_secs, b.decision_secs),
+        aim_error_deg: mix(a.aim_error_deg, b.aim_error_deg),
+    }
+}
+
+impl SkillTier {
+    /// This tier's place on the [`hand_skill`] scale.
+    pub fn level(self) -> f32 {
+        Self::ALL.iter().position(|t| *t == self).unwrap_or(0) as f32
     }
 }
 
@@ -184,5 +228,22 @@ impl FromStr for SkillTier {
             .ok_or_else(|| {
                 format!("unknown tier {s:?}; expected novice, casual, skilled or expert")
             })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hand_skill_matches_tiers_and_blends_between() {
+        let skilled = SkillTier::Skilled.params();
+        let at_two = hand_skill(SkillTier::Skilled.level());
+        assert_eq!(at_two.aim_error_deg, skilled.aim_error_deg);
+        let half = hand_skill(2.5);
+        let expert = SkillTier::Expert.params();
+        let expected = (skilled.aim_error_deg + expert.aim_error_deg) / 2.0;
+        assert!((half.aim_error_deg - expected).abs() < 1e-4);
+        assert_eq!(hand_skill(9.0), hand_skill(MAX_HAND_SKILL));
     }
 }
