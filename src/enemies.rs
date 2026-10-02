@@ -70,8 +70,15 @@ struct Chaser {
 #[derive(Component, Debug, Clone, Copy)]
 enum Gait {
     Chase,
-    HoldRange { range: f32, orbit: f32 },
-    Charge(Charge),
+    HoldRange {
+        range: f32,
+        orbit: f32,
+    },
+    /// `cap` is the fastest its dash may go (see [`movement::dash_cap`]).
+    Charge {
+        charge: Charge,
+        cap: f32,
+    },
 }
 
 /// Seconds until this enemy may deal contact damage again.
@@ -107,9 +114,9 @@ fn move_enemies(
         let heading = match *gait {
             Gait::Chase => movement::chase(to_player),
             Gait::HoldRange { range, orbit } => movement::hold_range(to_player, range, orbit),
-            Gait::Charge(charge) => {
+            Gait::Charge { charge, cap } => {
                 let (next, heading) = charge.step(to_player, dt);
-                *gait = Gait::Charge(next);
+                *gait = Gait::Charge { charge: next, cap };
                 if let Some(mut tell) = tell {
                     // Only touch it on a change, so readers can use `Changed`.
                     tell.set_if_neq(ChargeTell { aim: next.tell() });
@@ -117,11 +124,15 @@ fn move_enemies(
                 heading
             }
         };
-        let next = here + heading * chaser.speed * dt;
+        let velocity = match *gait {
+            Gait::Charge { cap, .. } => (heading * chaser.speed).clamp_length_max(cap),
+            Gait::Chase | Gait::HoldRange { .. } => heading * chaser.speed,
+        };
+        let next = here + velocity * dt;
         // Chasers head inward anyway; this keeps ranged kinds and dashes in.
         let next = match *gait {
             Gait::Chase => next,
-            Gait::HoldRange { .. } | Gait::Charge(_) => bounds.clamp(next, hitbox.half_extents),
+            Gait::HoldRange { .. } | Gait::Charge { .. } => bounds.clamp(next, hitbox.half_extents),
         };
         transform.translation = next.extend(transform.translation.z);
     }

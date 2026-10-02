@@ -3,7 +3,7 @@
 
 use super::tier::{PickupPolicy, SpendPolicy, WeaponPolicy};
 use crate::pickups::api::PickupKind;
-use crate::weapons::api::WeaponKind;
+use crate::weapons::api::{SwordBinding, WeaponKind};
 use bevy::math::Vec2;
 
 /// What the bot believes about weapon reach. Mirrors the weapons' own
@@ -100,9 +100,56 @@ pub fn choose_weapon(policy: WeaponPolicy, own: Vec2, threats: &[Vec2]) -> Weapo
     }
 }
 
+/// The weapon to select. With the sword on its own button there is nothing
+/// to select for melee, so a melee pick holds hitscan and leaves the sword
+/// to [`swing_target`].
+pub fn primary(weapon: WeaponKind, sword: SwordBinding) -> WeaponKind {
+    match (sword, weapon) {
+        (SwordBinding::RightClick, WeaponKind::Melee) => WeaponKind::Hitscan,
+        _ => weapon,
+    }
+}
+
+/// With the sword on its own button: the nearest enemy close enough to swing
+/// at. Every bot swings whenever one is, with no further judgement.
+pub fn swing_target(sword: SwordBinding, own: Vec2, threats: &[Vec2]) -> Option<Vec2> {
+    if sword != SwordBinding::RightClick {
+        return None;
+    }
+    let melee = reach(WeaponKind::Melee);
+    threats
+        .iter()
+        .copied()
+        .filter(|t| t.distance(own) <= melee)
+        .min_by(|a, b| a.distance_squared(own).total_cmp(&b.distance_squared(own)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sword_on_its_own_button_swings_only_at_what_is_close() {
+        let own = Vec2::ZERO;
+        let threats = [Vec2::new(300.0, 0.0), Vec2::new(60.0, 0.0)];
+        assert_eq!(
+            swing_target(SwordBinding::RightClick, own, &threats),
+            Some(Vec2::new(60.0, 0.0))
+        );
+        assert_eq!(
+            swing_target(SwordBinding::RightClick, own, &threats[..1]),
+            None
+        );
+        assert_eq!(swing_target(SwordBinding::Key3, own, &threats), None);
+        assert_eq!(
+            primary(WeaponKind::Melee, SwordBinding::RightClick),
+            WeaponKind::Hitscan
+        );
+        assert_eq!(
+            primary(WeaponKind::Melee, SwordBinding::Key3),
+            WeaponKind::Melee
+        );
+    }
 
     #[test]
     fn weighed_policy_refuses_mend_when_crowded() {

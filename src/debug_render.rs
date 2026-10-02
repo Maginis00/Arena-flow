@@ -19,6 +19,7 @@ const SHOOTER_COLOR: Color = Color::srgb(1.0, 0.45, 0.1);
 const BRUTE_COLOR: Color = Color::srgb(0.55, 0.05, 0.05);
 const CHARGER_COLOR: Color = Color::srgb(1.0, 0.3, 0.55);
 const SUMMONER_COLOR: Color = Color::srgb(0.6, 0.2, 0.9);
+const SWARM_COLOR: Color = Color::srgb(1.0, 0.75, 0.2);
 /// A charger winding up flashes this colour: its tell.
 const CHARGER_TELL_COLOR: Color = Color::srgb(1.0, 0.95, 0.95);
 const BOLT_COLOR: Color = Color::srgb(1.0, 0.55, 0.2);
@@ -100,6 +101,7 @@ fn attach_boxes(
             (_, Some(EnemyKind::Brute), _) => BRUTE_COLOR,
             (_, Some(EnemyKind::Charger), _) => CHARGER_COLOR,
             (_, Some(EnemyKind::Summoner), _) => SUMMONER_COLOR,
+            (_, Some(EnemyKind::Swarm), _) => SWARM_COLOR,
             (_, None, true) => BOLT_COLOR,
             (_, None, false) => PROJECTILE_COLOR,
         };

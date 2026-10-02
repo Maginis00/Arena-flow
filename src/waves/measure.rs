@@ -72,7 +72,7 @@ pub(super) fn measure(
     let (mut spawned, mut queued) = (0, 0);
     for enemy in enemy_spawned.read() {
         spawned += 1;
-        queued += u32::from(!enemy.summoned);
+        queued += u32::from(!enemy.extra);
     }
     let killed = count(enemy_killed.read().count());
     let damage: u32 = player_damaged.read().map(|d| d.amount).sum();

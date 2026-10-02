@@ -4,6 +4,7 @@
 use flow_arena::enemies::api::EnemyMix;
 use flow_arena::pickups::api::PickupRules;
 use flow_arena::playtest::{SessionConfig, SkillTier, Summary, play};
+use flow_arena::weapons::api::SwordBinding;
 
 fn settle_with(tier: SkillTier, enemies: EnemyMix, pickup_rules: PickupRules) -> Summary {
     let log = play(SessionConfig {
@@ -16,6 +17,7 @@ fn settle_with(tier: SkillTier, enemies: EnemyMix, pickup_rules: PickupRules) ->
         pickup_rules,
         pickup_policy: None,
         spend: None,
+        sword: SwordBinding::Key3,
     });
     Summary::of(&log)
 }
@@ -52,7 +54,7 @@ fn director_ranks_expert_above_novice() {
 
 #[test]
 fn waves_with_every_enemy_kind_still_end() {
-    // Summoners add enemies beyond the wave's count; the wave must still
+    // Summoners and swarms add enemies beyond the wave's count; the wave must still
     // finish once everything is dead, and the director must keep working.
     let expert = settle_with(SkillTier::Expert, EnemyMix::All, PickupRules::Classic);
     eprintln!("expert vs all: {}", expert.trajectory);

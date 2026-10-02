@@ -36,9 +36,13 @@
 //! cargo run --example playtest -- --watch --enemies all
 //! ```
 //!
-//! `--enemies` takes grunt (the default), shooter, brute, charger, summoner
+//! `--enemies` takes grunt (the default), shooter, brute, charger, summoner, swarm
 //! or all; repeat it to compare mixes. To play a mix yourself, set
 //! `ARENA_ENEMIES=all` before `cargo run`.
+//!
+//! `--sword right` puts the sword on the right mouse button next to the gun
+//! (prototype; `key3`, the default, keeps it as weapon 3). It applies to every
+//! session of the run. To play it yourself, set `ARENA_SWORD=right`.
 //!
 //! `--watch-all` opens one window per tier (or per `--tier` given, at most
 //! four), each a separate process of this same binary filling one quarter of
@@ -60,7 +64,7 @@ use flow_arena::playtest::{
 use flow_arena::telemetry::api::{
     SESSION_DIR, SessionRecord, WEAPONS, read_session_file, save_session,
 };
-use flow_arena::weapons::api::WeaponKind;
+use flow_arena::weapons::api::{SwordBinding, WeaponKind};
 use std::path::PathBuf;
 use std::process::{Command, ExitCode};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -69,9 +73,9 @@ use std::thread;
 const USAGE: &str = "usage: playtest [--minutes N] [--seeds N] [--tier NAME]... \
                      [--weapon projectile|hitscan|melee]... [--matrix] [--enemies MIX]... [--human] [--human-only]\n       \
                      [--pin LEVEL]... [--sweep] [--jsonl DIR]\n       \
-                     [--pickups RULES]... [--pickup-policy NAME]... [--spend NAME]...\n       \
-                     playtest --watch [--tier NAME] [--seeds N] [--weapon NAME] [--enemies MIX] [--quadrant NAME]\n       \
-                     playtest --watch-all [--tier NAME]... [--seeds N] [--weapon NAME] [--enemies MIX]";
+                     [--pickups RULES]... [--pickup-policy NAME]... [--spend NAME]... [--sword key3|right]\n       \
+                     playtest --watch [--tier NAME] [--seeds N] [--weapon NAME] [--enemies MIX] [--sword NAME] [--quadrant NAME]\n       \
+                     playtest --watch-all [--tier NAME]... [--seeds N] [--weapon NAME] [--enemies MIX] [--sword NAME]";
 
 struct Args {
     minutes: f32,
@@ -86,6 +90,7 @@ struct Args {
     /// `None` is the tier's own policy.
     pickup_policies: Vec<Option<PickupPolicy>>,
     spends: Vec<Option<SpendPolicy>>,
+    sword: SwordBinding,
     jsonl: Option<PathBuf>,
     human: bool,
     bots: bool,
@@ -127,6 +132,7 @@ fn parse(mut raw: impl Iterator<Item = String>) -> Result<Args, String> {
         rules: Vec::new(),
         pickup_policies: Vec::new(),
         spends: Vec::new(),
+        sword: SwordBinding::default(),
         jsonl: None,
         human: false,
         bots: true,
@@ -156,6 +162,7 @@ fn parse(mut raw: impl Iterator<Item = String>) -> Result<Args, String> {
             "--pickups" => args.rules.push(value()?.parse()?),
             "--pickup-policy" => args.pickup_policies.push(Some(value()?.parse()?)),
             "--spend" => args.spends.push(Some(value()?.parse()?)),
+            "--sword" => args.sword = value()?.parse()?,
             "--jsonl" => args.jsonl = Some(PathBuf::from(value()?)),
             "--watch" => args.watch = true,
             "--watch-all" => args.watch_all = true,
@@ -214,6 +221,7 @@ fn main() -> ExitCode {
             weapon: args.weapons.iter().find_map(|w| *w),
             quadrant: args.quadrant,
             enemies: args.enemies.first().copied().unwrap_or_default(),
+            sword: args.sword,
         };
         return if watch(config).is_success() {
             ExitCode::SUCCESS
@@ -256,6 +264,7 @@ fn main() -> ExitCode {
                                         pickup_rules,
                                         pickup_policy,
                                         spend,
+                                        sword: args.sword,
                                     });
                                 }
                             }
@@ -385,6 +394,7 @@ fn watch_all(args: &Args) -> ExitCode {
         if let Some(weapon) = args.weapons.iter().find_map(|w| *w) {
             command.args(["--weapon", weapon_name(weapon)]);
         }
+        command.args(["--sword", &args.sword.to_string()]);
         match command.spawn() {
             Ok(child) => children.push(child),
             Err(e) => eprintln!("could not start the {tier} bot: {e}"),

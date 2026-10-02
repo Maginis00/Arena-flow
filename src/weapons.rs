@@ -1,5 +1,6 @@
 //! The three placeholder weapons: projectile, hitscan and melee arc. Only the
-//! selected one fires. Weapons decide *that* a shot happens (cooldown, lock,
+//! selected one fires, except that with [`SwordBinding::RightClick`] the melee
+//! arc sits on its own button next to the gun. Weapons decide *that* a shot happens (cooldown, lock,
 //! damage after pickup effects); combat decides *what it hits*.
 
 pub mod api;
@@ -8,8 +9,8 @@ use crate::app_setup::api::SimSet;
 use crate::arena::api::DespawnOutsideArena;
 use crate::combat::api::{Hitbox, Projectile, ShotId, Team};
 use crate::pickups::api::{Effects, EffectsChanged, scale_damage};
-use crate::player::api::FireRequested;
-use api::{Delivery, ShotFired, WeaponKind, WeaponSwitched};
+use crate::player::api::{FireRequested, SwingRequested};
+use api::{Delivery, ShotFired, SwordBinding, WeaponKind, WeaponSwitched};
 use bevy::prelude::*;
 
 /// PLACEHOLDER per-weapon stats.
@@ -48,12 +49,19 @@ const HITSCAN_RANGE: f32 = 520.0;
 const MELEE_RADIUS: f32 = 75.0;
 /// PLACEHOLDER: melee arc half-angle (60 degrees, so a 120 degree swing).
 const MELEE_HALF_ANGLE: f32 = std::f32::consts::FRAC_PI_3;
+/// PLACEHOLDER: seconds between swings with the sword on the right mouse button.
+const SWING_COOLDOWN_SECS: f32 = 2.0;
 
 pub struct WeaponsPlugin;
 
 impl Plugin for WeaponsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_message::<ShotFired>()
+        let sword = std::env::var(SwordBinding::ENV_VAR)
+            .ok()
+            .and_then(|name| name.parse().ok())
+            .unwrap_or_default();
+        app.insert_resource::<SwordBinding>(sword)
+            .add_message::<ShotFired>()
             .add_message::<WeaponSwitched>()
             .init_resource::<WeaponInput>()
             .init_resource::<Armory>()
@@ -63,7 +71,7 @@ impl Plugin for WeaponsPlugin {
                 FixedUpdate,
                 (track_effects, apply_selection).in_set(SimSet::Intent),
             )
-            .add_systems(FixedUpdate, fire.in_set(SimSet::Spawn))
+            .add_systems(FixedUpdate, (fire, swing).chain().in_set(SimSet::Spawn))
             .add_systems(FixedUpdate, move_projectiles.in_set(SimSet::Movement));
     }
 }
@@ -79,6 +87,8 @@ struct WeaponInput {
 struct Armory {
     selected: WeaponKind,
     cooldown_remaining_secs: f32,
+    /// Only counts down with [`SwordBinding::RightClick`].
+    swing_cooldown_remaining_secs: f32,
     next_shot: u32,
     effects: Effects,
 }
@@ -112,6 +122,7 @@ fn track_effects(mut changed: MessageReader<EffectsChanged>, mut armory: ResMut<
 }
 
 fn apply_selection(
+    sword: Res<SwordBinding>,
     mut input: ResMut<WeaponInput>,
     mut armory: ResMut<Armory>,
     mut switched: MessageWriter<WeaponSwitched>,
@@ -119,6 +130,10 @@ fn apply_selection(
     let Some(weapon) = input.requested.take() else {
         return;
     };
+    // With the sword on its own button, `3` selects nothing.
+    if *sword == SwordBinding::RightClick && weapon == WeaponKind::Melee {
+        return;
+    }
     if weapon != armory.selected {
         armory.selected = weapon;
         switched.write(WeaponSwitched { weapon });
@@ -183,6 +198,47 @@ fn fire(
         origin: request.origin,
         direction: request.direction,
         delivery,
+    });
+}
+
+/// The sword on the right mouse button: its own cooldown, fired next to the gun.
+fn swing(
+    time: Res<Time>,
+    sword: Res<SwordBinding>,
+    mut armory: ResMut<Armory>,
+    mut requests: MessageReader<SwingRequested>,
+    mut fired: MessageWriter<ShotFired>,
+) {
+    armory.swing_cooldown_remaining_secs =
+        (armory.swing_cooldown_remaining_secs - time.delta_secs()).max(0.0);
+    let Some(request) = requests.read().last().copied() else {
+        return;
+    };
+    if *sword != SwordBinding::RightClick
+        || armory.swing_cooldown_remaining_secs > 0.0
+        || armory.effects.weapons_locked
+    {
+        return;
+    }
+    armory.swing_cooldown_remaining_secs = SWING_COOLDOWN_SECS / armory.effects.fire_rate.max(0.05);
+    let damage = scale_damage(
+        stats(WeaponKind::Melee).damage,
+        armory.effects.outgoing_damage,
+    );
+    let shot = ShotId(armory.next_shot);
+    armory.next_shot = armory.next_shot.wrapping_add(1);
+    fired.write(ShotFired {
+        shot,
+        shooter: request.shooter,
+        team: Team::Player,
+        weapon: WeaponKind::Melee,
+        origin: request.origin,
+        direction: request.direction,
+        delivery: Delivery::Melee {
+            radius: MELEE_RADIUS,
+            half_angle: MELEE_HALF_ANGLE,
+            damage,
+        },
     });
 }
 

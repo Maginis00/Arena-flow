@@ -12,7 +12,7 @@ use crate::flow_director::{DirectorConfig, FlowDirectorPlugin};
 use crate::pickups::PickupsPlugin;
 use crate::pickups::api::PickupRules;
 use crate::telemetry::api::SessionRecord;
-use crate::weapons::api::WeaponKind;
+use crate::weapons::api::{SwordBinding, WeaponKind};
 use bevy::ecs::schedule::SingleThreadedExecutor;
 use bevy::input::InputPlugin;
 use bevy::prelude::*;
@@ -38,6 +38,8 @@ pub struct SessionConfig {
     pub pickup_policy: Option<PickupPolicy>,
     /// Spend shards this way instead of the tier's own policy.
     pub spend: Option<SpendPolicy>,
+    /// Where the sword lives (prototype); `Key3` is the game as it ships.
+    pub sword: SwordBinding,
 }
 
 /// Run one session to completion and return its log.
@@ -79,6 +81,7 @@ pub fn play(config: SessionConfig) -> SessionRecord {
             seed: config.seed,
         })
         .insert_resource(config.enemies)
+        .insert_resource(config.sword)
         .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(
             1.0 / FIXED_HZ,
         )));
