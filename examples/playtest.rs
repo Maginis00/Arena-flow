@@ -36,7 +36,7 @@
 //! cargo run --example playtest -- --watch --enemies all
 //! ```
 //!
-//! `--enemies` takes grunt (the default), shooter, brute, charger, summoner
+//! `--enemies` takes grunt (the default), shooter, brute, charger, summoner, swarm
 //! or all; repeat it to compare mixes. To play a mix yourself, set
 //! `ARENA_ENEMIES=all` before `cargo run`.
 //!

@@ -2,7 +2,7 @@
 //! gets, where it appears, and everything a new enemy carries.
 
 use super::api::{ChargeTell, Enemy, EnemyKind, EnemyMix, EnemySpawned};
-use super::movement::Charge;
+use super::movement::{self, Charge};
 use super::{Chaser, ContactCooldown, Gait, attacks, kinds, placement};
 use crate::arena::api::ArenaBounds;
 use crate::combat::api::{Health, Hitbox, Team};
@@ -21,6 +21,10 @@ const SPAWN_SAFE_RADIUS: f32 = 200.0;
 const SHOOTER_RANGE: f32 = 320.0;
 /// PLACEHOLDER: distance summoners hold from the player.
 const SUMMONER_RANGE: f32 = 380.0;
+/// PLACEHOLDER: enemies in one swarm. Only the first counts as a wave slot.
+const SWARM_SIZE: u32 = 6;
+/// PLACEHOLDER: radius of the ring a swarm appears in.
+const SWARM_SPREAD: f32 = 22.0;
 
 /// Enemies still to spawn for the current wave.
 #[derive(Resource, Debug, Default)]
@@ -45,7 +49,7 @@ pub(super) fn spawn_enemy<'a>(
 ) -> EntityCommands<'a> {
     let stats = kinds::stats(kind);
     let gait = match kind {
-        EnemyKind::Grunt | EnemyKind::Brute => Gait::Chase,
+        EnemyKind::Grunt | EnemyKind::Brute | EnemyKind::Swarm => Gait::Chase,
         EnemyKind::Shooter => Gait::HoldRange {
             range: SHOOTER_RANGE,
             orbit,
@@ -54,7 +58,10 @@ pub(super) fn spawn_enemy<'a>(
             range: SUMMONER_RANGE,
             orbit,
         },
-        EnemyKind::Charger => Gait::Charge(Charge::default()),
+        EnemyKind::Charger => Gait::Charge {
+            charge: Charge::default(),
+            cap: movement::dash_cap(spec.difficulty.level()),
+        },
     };
     let mut enemy = commands.spawn((
         (Enemy, kind, Team::Enemy),
@@ -120,10 +127,50 @@ pub(super) fn spawn_from_queue(
     } else {
         -1.0
     };
-    let enemy = spawn_enemy(&mut commands, kind, &spec, at, orbit).id();
-    spawned.write(EnemySpawned {
-        enemy,
-        kind,
-        summoned: false,
-    });
+    let pack = if kind == EnemyKind::Swarm {
+        SWARM_SIZE
+    } else {
+        1
+    };
+    for member in 0..pack {
+        let at = bounds.clamp(at + pack_offset(member, pack), Vec2::splat(half_size));
+        let enemy = spawn_enemy(&mut commands, kind, &spec, at, orbit).id();
+        spawned.write(EnemySpawned {
+            enemy,
+            kind,
+            extra: member > 0,
+        });
+    }
+}
+
+/// Where member `member` of a pack of `size` stands, relative to the pack's
+/// spawn point: an even ring, or the point itself for a pack of one.
+fn pack_offset(member: u32, size: u32) -> Vec2 {
+    if size <= 1 {
+        return Vec2::ZERO;
+    }
+    let angle = std::f32::consts::TAU * member as f32 / size as f32;
+    Vec2::from_angle(angle) * SWARM_SPREAD
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_lone_enemy_stands_on_its_spawn_point() {
+        assert_eq!(pack_offset(0, 1), Vec2::ZERO);
+    }
+
+    #[test]
+    fn a_pack_spreads_evenly_around_its_spawn_point() {
+        let ring: Vec<Vec2> = (0..SWARM_SIZE)
+            .map(|m| pack_offset(m, SWARM_SIZE))
+            .collect();
+        for offset in &ring {
+            assert!((offset.length() - SWARM_SPREAD).abs() < 1e-3);
+        }
+        let centre = ring.iter().sum::<Vec2>() / SWARM_SIZE as f32;
+        assert!(centre.length() < 1e-3, "{centre:?}");
+    }
 }

@@ -52,7 +52,7 @@ fn director_ranks_expert_above_novice() {
 
 #[test]
 fn waves_with_every_enemy_kind_still_end() {
-    // Summoners add enemies beyond the wave's count; the wave must still
+    // Summoners and swarms add enemies beyond the wave's count; the wave must still
     // finish once everything is dead, and the director must keep working.
     let expert = settle_with(SkillTier::Expert, EnemyMix::All, PickupRules::Classic);
     eprintln!("expert vs all: {}", expert.trajectory);

@@ -136,7 +136,7 @@ Bevy only drops messages after `FixedUpdate` has run, so none are missed.
 ## Enemy kinds (enemies)
 
 Every enemy carries an `EnemyKind`: grunt (the original), shooter, brute,
-charger, summoner. The `EnemyMix` resource says which kinds a wave holds;
+charger, summoner, swarm. The `EnemyMix` resource says which kinds a wave holds;
 `kinds::kind_for_slot` fills each spawn slot of a wave from a fixed pattern,
 so a mix is deterministic. The default mix is grunts only, which is the game as
 it was. `ARENA_ENEMIES=<mix>` sets it for the game window and `--enemies` for
@@ -149,11 +149,14 @@ the director's levers, so the director still scales them all.
   `HitSource::EnemyShot`.
 - Chargers stop to wind up, then dash in the direction they locked, then rest.
   While winding up their `ChargeTell` holds the dash direction: debug_render
-  turns them pale, and bots that read tells step out of the lane.
-- Summoners call in grunts (a `summoned` `EnemySpawned`), a few alive at a time
-  and a fixed number over their life, so every wave stays finite. Waves count
-  summoned enemies towards the kills needed, but only the wave's own count
-  towards "still spawning".
+  turns them pale, and bots that read tells step out of the lane. A dash never
+  goes faster than `movement::dash_cap`, which rises with the difficulty.
+- Summoners call in grunts (an `extra` `EnemySpawned`), a few alive at a time
+  and a fixed number over their life, so every wave stays finite.
+- A swarm slot spawns a whole pack of tiny one-hit enemies in a ring at one
+  spot on the wall. Only the first member takes the slot; the rest are `extra`.
+- Waves count `extra` enemies towards the kills needed, but only the wave's
+  own count towards "still spawning".
 
 ## Wave state machine (waves)
 
@@ -161,7 +164,7 @@ the director's levers, so the director still scales them all.
 
 - `Idle`: waiting for the first `DifficultyAdjusted`.
 - `Spawning`: the wave's own enemies still being spawned. Player death ends the wave.
-- `Active`: all of them spawned; ends when every enemy that entered (summoned
+- `Active`: all of them spawned; ends when every enemy that entered (extra
   ones too) is killed, or the player dies.
 - `Cleared(outcome)`: one tick. Writes `WaveCleared` or `WaveFailed`, then `WaveReport`.
 - `Intermission`: fixed pause, then the next wave starts with the latest levers.
