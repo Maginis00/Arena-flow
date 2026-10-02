@@ -6,6 +6,7 @@
 //! cargo run --example playtest -- --minutes 20 --seeds 3 --tier expert
 //! cargo run --example playtest -- --weapon melee --weapon hitscan
 //! cargo run --example playtest -- --matrix   # every tier x every weapon
+//! cargo run --example playtest -- --enemies shooter --enemies all  # enemy kinds mixed in
 //! cargo run --example playtest -- --human       # add your own sessions
 //! cargo run --example playtest -- --human-only  # only your own sessions
 //! cargo run --example playtest -- --pin 5 --pin 7.5  # no director: fixed difficulty
@@ -22,7 +23,12 @@
 //!
 //! ```sh
 //! cargo run --example playtest -- --watch --tier skilled --weapon melee
+//! cargo run --example playtest -- --watch --enemies all
 //! ```
+//!
+//! `--enemies` takes grunt (the default), shooter, brute, charger, summoner
+//! or all; repeat it to compare mixes. To play a mix yourself, set
+//! `ARENA_ENEMIES=all` before `cargo run`.
 //!
 //! `--watch-all` opens one window per tier (or per `--tier` given, at most
 //! four), each a separate process of this same binary filling one quarter of
@@ -34,6 +40,7 @@
 //! cargo run --example playtest -- --watch-all
 //! ```
 
+use flow_arena::enemies::api::EnemyMix;
 use flow_arena::flow_director::api::Difficulty;
 use flow_arena::playtest::{
     Named, Quadrant, SessionConfig, SkillTier, Summary, WatchConfig, flow_table, pickup_table,
@@ -49,10 +56,10 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
 
 const USAGE: &str = "usage: playtest [--minutes N] [--seeds N] [--tier NAME]... \
-                     [--weapon projectile|hitscan|melee]... [--matrix] [--human] [--human-only]\n       \
+                     [--weapon projectile|hitscan|melee]... [--matrix] [--enemies MIX]... [--human] [--human-only]\n       \
                      [--pin LEVEL]... [--sweep] [--jsonl DIR]\n       \
-                     playtest --watch [--tier NAME] [--seeds N] [--weapon NAME] [--quadrant NAME]\n       \
-                     playtest --watch-all [--tier NAME]... [--seeds N] [--weapon NAME]";
+                     playtest --watch [--tier NAME] [--seeds N] [--weapon NAME] [--enemies MIX] [--quadrant NAME]\n       \
+                     playtest --watch-all [--tier NAME]... [--seeds N] [--weapon NAME] [--enemies MIX]";
 
 struct Args {
     minutes: f32,
@@ -60,6 +67,7 @@ struct Args {
     tiers: Vec<SkillTier>,
     /// `None` is the tier's own weapon choice.
     weapons: Vec<Option<WeaponKind>>,
+    enemies: Vec<EnemyMix>,
     /// `None` is the director steering.
     pins: Vec<Option<Difficulty>>,
     jsonl: Option<PathBuf>,
@@ -98,6 +106,7 @@ fn parse(mut raw: impl Iterator<Item = String>) -> Result<Args, String> {
         seeds: 1,
         tiers: Vec::new(),
         weapons: Vec::new(),
+        enemies: Vec::new(),
         pins: Vec::new(),
         jsonl: None,
         human: false,
@@ -118,6 +127,7 @@ fn parse(mut raw: impl Iterator<Item = String>) -> Result<Args, String> {
             "--matrix" => {
                 args.weapons = std::iter::once(None).chain(WEAPONS.map(Some)).collect();
             }
+            "--enemies" => args.enemies.push(value()?.parse()?),
             "--pin" => args.pins.push(Some(parse_level(&value()?)?)),
             "--sweep" => {
                 args.pins = (1..=10)
@@ -146,6 +156,9 @@ fn parse(mut raw: impl Iterator<Item = String>) -> Result<Args, String> {
     if args.weapons.is_empty() {
         args.weapons.push(None);
     }
+    if args.enemies.is_empty() {
+        args.enemies.push(EnemyMix::Grunts);
+    }
     if args.pins.is_empty() {
         args.pins.push(None);
     }
@@ -169,6 +182,7 @@ fn main() -> ExitCode {
             seed: args.seeds.max(1),
             weapon: args.weapons.iter().find_map(|w| *w),
             quadrant: args.quadrant,
+            enemies: args.enemies.first().copied().unwrap_or_default(),
         };
         return if watch(config).is_success() {
             ExitCode::SUCCESS
@@ -193,17 +207,20 @@ fn main() -> ExitCode {
     } else {
         &[]
     };
-    for &tier in tiers {
-        for &weapon_lock in &args.weapons {
-            for &pinned in &args.pins {
-                for seed in 1..=args.seeds.max(1) {
-                    configs.push(SessionConfig {
-                        tier,
-                        seed,
-                        minutes: args.minutes,
-                        weapon_lock,
-                        pinned,
-                    });
+    for &enemies in &args.enemies {
+        for &tier in tiers {
+            for &weapon_lock in &args.weapons {
+                for &pinned in &args.pins {
+                    for seed in 1..=args.seeds.max(1) {
+                        configs.push(SessionConfig {
+                            tier,
+                            seed,
+                            minutes: args.minutes,
+                            weapon_lock,
+                            enemies,
+                            pinned,
+                        });
+                    }
                 }
             }
         }
@@ -218,8 +235,12 @@ fn main() -> ExitCode {
         let lock = c
             .weapon_lock
             .map_or_else(String::new, |w| format!(" [{w} only]"));
+        let mix = match c.enemies {
+            EnemyMix::Grunts => String::new(),
+            mix => format!(" ({mix})"),
+        };
         let pin = c.pinned.map_or_else(String::new, |d| format!(" @{d}"));
-        (format!("{} #{}{lock}{pin}", c.tier, c.seed), log)
+        (format!("{} #{}{lock}{mix}{pin}", c.tier, c.seed), log)
     }));
     if let Some(dir) = &args.jsonl
         && let Err(e) = save_all(dir, &configs, &logs)
@@ -296,6 +317,14 @@ fn watch_all(args: &Args) -> ExitCode {
         command.args(["--watch", "--tier", &tier.to_string()]);
         command.args(["--quadrant", &quadrant.to_string()]);
         command.args(["--seeds", &args.seeds.max(1).to_string()]);
+        if let Some(mix) = args.enemies.first() {
+            let name = match mix {
+                EnemyMix::Grunts => "grunt".to_owned(),
+                EnemyMix::With(kind) => kind.to_string(),
+                EnemyMix::All => "all".to_owned(),
+            };
+            command.args(["--enemies", &name]);
+        }
         if let Some(weapon) = args.weapons.iter().find_map(|w| *w) {
             command.args(["--weapon", weapon_name(weapon)]);
         }
@@ -329,7 +358,12 @@ fn save_all(
         let pin = c
             .pinned
             .map_or_else(|| "director".to_owned(), |d| d.to_string());
-        let name = format!("{}-{weapon}-{pin}-{}.jsonl", c.tier, c.seed);
+        let mix = match c.enemies {
+            EnemyMix::Grunts => "grunts".to_owned(),
+            EnemyMix::With(kind) => kind.to_string(),
+            EnemyMix::All => "all".to_owned(),
+        };
+        let name = format!("{}-{weapon}-{mix}-{pin}-{}.jsonl", c.tier, c.seed);
         save_session(&dir.join(name), log)?;
     }
     Ok(())

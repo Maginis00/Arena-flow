@@ -6,6 +6,7 @@ use super::tier::{SkillTier, WeaponPolicy};
 use crate::FlowArenaPlugins;
 use crate::app_setup::api::FIXED_HZ;
 use crate::debug_render::DebugRenderPlugin;
+use crate::enemies::api::EnemyMix;
 use crate::flow_director::api::Difficulty;
 use crate::flow_director::{DirectorConfig, FlowDirectorPlugin};
 use crate::telemetry::api::SessionRecord;
@@ -25,6 +26,8 @@ pub struct SessionConfig {
     pub minutes: f32,
     /// Hold only this weapon instead of the tier's own weapon choice.
     pub weapon_lock: Option<WeaponKind>,
+    /// Which enemy kinds the waves hold.
+    pub enemies: EnemyMix,
     /// Play every wave at this difficulty instead of letting the director steer.
     pub pinned: Option<Difficulty>,
 }
@@ -54,6 +57,7 @@ pub fn play(config: SessionConfig) -> SessionRecord {
             params,
             seed: config.seed,
         })
+        .insert_resource(config.enemies)
         .insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(
             1.0 / FIXED_HZ,
         )));

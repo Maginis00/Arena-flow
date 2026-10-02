@@ -1,17 +1,23 @@
 //! Short headless runs of the playtest bots through the real plugins.
 //! The full report is `cargo run --release --example playtest`.
 
+use flow_arena::enemies::api::EnemyMix;
 use flow_arena::playtest::{SessionConfig, SkillTier, Summary, play};
 
-fn settle(tier: SkillTier) -> Summary {
+fn settle_against(tier: SkillTier, enemies: EnemyMix) -> Summary {
     let log = play(SessionConfig {
         tier,
         seed: 1,
         minutes: 4.0,
         weapon_lock: None,
+        enemies,
         pinned: None,
     });
     Summary::of(&log)
+}
+
+fn settle(tier: SkillTier) -> Summary {
+    settle_against(tier, EnemyMix::Grunts)
 }
 
 #[test]
@@ -30,4 +36,14 @@ fn director_ranks_expert_above_novice() {
         expert.settled,
         novice.settled
     );
+}
+
+#[test]
+fn waves_with_every_enemy_kind_still_end() {
+    // Summoners add enemies beyond the wave's count; the wave must still
+    // finish once everything is dead, and the director must keep working.
+    let expert = settle_against(SkillTier::Expert, EnemyMix::All);
+    eprintln!("expert vs all: {}", expert.trajectory);
+    assert!(expert.waves >= 5, "only {} waves", expert.waves);
+    assert!(expert.clears > 0);
 }
