@@ -5,7 +5,7 @@ Session-Log hochgeladen, ohne die Fragen aus der Anleitung
 (`/mnt/project-files/playtest/anleitung.md`). Als erster Eindruck lesen,
 nicht als Messung.
 
-Stand: main vor dem Merge von #15/#16 bzw. kurz danach; Varianten
+Gespielt: Varianten
 `cargo run` (nur Grunts) und Charger.
 
 ## Was Jannus berichtet hat
