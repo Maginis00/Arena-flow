@@ -17,6 +17,47 @@ pub enum PickupPolicy {
     Weighed,
 }
 
+/// When a bot spends its shards on a blast (shard pickup rules only).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SpendPolicy {
+    /// Never spends: keeps the fire-rate bonus.
+    Hoard,
+    /// Spends only when a crowd is on top of it or it is about to die.
+    Panic,
+    /// Spends as soon as it can and anything is in range.
+    Eager,
+}
+
+impl FromStr for SpendPolicy {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "hoard" => Ok(Self::Hoard),
+            "panic" => Ok(Self::Panic),
+            "eager" => Ok(Self::Eager),
+            _ => Err(format!(
+                "unknown spend policy {s:?}; expected hoard, panic or eager"
+            )),
+        }
+    }
+}
+
+impl FromStr for PickupPolicy {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "ignore" => Ok(Self::Ignore),
+            "greedy" => Ok(Self::Greedy),
+            "weighed" => Ok(Self::Weighed),
+            _ => Err(format!(
+                "unknown pickup policy {s:?}; expected ignore, greedy or weighed"
+            )),
+        }
+    }
+}
+
 /// How a bot picks its weapon.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WeaponPolicy {
@@ -48,6 +89,7 @@ pub struct TierParams {
     /// How far the bot will walk for a pickup.
     pub pickup_reach: f32,
     pub weapon: WeaponPolicy,
+    pub spend: SpendPolicy,
 }
 
 /// The proposed tiers, from least to most skilled.
@@ -76,6 +118,7 @@ impl SkillTier {
                 pickups: PickupPolicy::Ignore,
                 pickup_reach: 0.0,
                 weapon: WeaponPolicy::Fixed(WeaponKind::Projectile),
+                spend: SpendPolicy::Eager,
             },
             Self::Casual => TierParams {
                 reaction_secs: 0.30,
@@ -88,6 +131,7 @@ impl SkillTier {
                 pickups: PickupPolicy::Greedy,
                 pickup_reach: 200.0,
                 weapon: WeaponPolicy::Fixed(WeaponKind::Projectile),
+                spend: SpendPolicy::Eager,
             },
             Self::Skilled => TierParams {
                 reaction_secs: 0.20,
@@ -100,6 +144,7 @@ impl SkillTier {
                 pickups: PickupPolicy::Weighed,
                 pickup_reach: 300.0,
                 weapon: WeaponPolicy::Fixed(WeaponKind::Hitscan),
+                spend: SpendPolicy::Panic,
             },
             Self::Expert => TierParams {
                 reaction_secs: 0.12,
@@ -112,6 +157,7 @@ impl SkillTier {
                 pickups: PickupPolicy::Weighed,
                 pickup_reach: 400.0,
                 weapon: WeaponPolicy::Situational,
+                spend: SpendPolicy::Panic,
             },
         }
     }

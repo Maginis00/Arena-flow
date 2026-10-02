@@ -22,6 +22,6 @@ pub use bot::PlaytestBotPlugin;
 pub use report::{Named, flow_table, pickup_table, table, weapon_table};
 pub use session::{SessionConfig, play};
 pub use summary::Summary;
-pub use tier::{PickupPolicy, SkillTier, TierParams, WeaponPolicy};
+pub use tier::{PickupPolicy, SkillTier, SpendPolicy, TierParams, WeaponPolicy};
 pub use tiling::Quadrant;
 pub use watch::{WatchConfig, watch};

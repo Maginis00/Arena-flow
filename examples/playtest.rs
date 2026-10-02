@@ -13,6 +13,16 @@
 //! cargo run --example playtest -- --jsonl out/       # also save each bot session
 //! ```
 //!
+//! Pickup prototypes: `--pickups classic|far|shards|shards-range` picks the
+//! rule set (repeat it to compare). `--pickup-policy ignore|greedy|weighed`
+//! and `--spend hoard|panic|eager` override every tier's own choice (repeat
+//! to compare strategies). Watching or playing a prototype in a window:
+//! `ARENA_PICKUPS=shards cargo run` (Space spends the shards).
+//!
+//! ```sh
+//! cargo run --release --example playtest -- --pickups shards --spend hoard --spend eager --sweep
+//! ```
+//!
 //! Your sessions are the files the game writes to `playtests/` when you play
 //! it in a window (`cargo run`), one file per launch.
 //!
@@ -35,9 +45,10 @@
 //! ```
 
 use flow_arena::flow_director::api::Difficulty;
+use flow_arena::pickups::api::PickupRules;
 use flow_arena::playtest::{
-    Named, Quadrant, SessionConfig, SkillTier, Summary, WatchConfig, flow_table, pickup_table,
-    play, table, watch, weapon_table,
+    Named, PickupPolicy, Quadrant, SessionConfig, SkillTier, SpendPolicy, Summary, WatchConfig,
+    flow_table, pickup_table, play, table, watch, weapon_table,
 };
 use flow_arena::telemetry::api::{
     SESSION_DIR, SessionRecord, WEAPONS, read_session_file, save_session,
@@ -51,6 +62,7 @@ use std::thread;
 const USAGE: &str = "usage: playtest [--minutes N] [--seeds N] [--tier NAME]... \
                      [--weapon projectile|hitscan|melee]... [--matrix] [--human] [--human-only]\n       \
                      [--pin LEVEL]... [--sweep] [--jsonl DIR]\n       \
+                     [--pickups RULES]... [--pickup-policy NAME]... [--spend NAME]...\n       \
                      playtest --watch [--tier NAME] [--seeds N] [--weapon NAME] [--quadrant NAME]\n       \
                      playtest --watch-all [--tier NAME]... [--seeds N] [--weapon NAME]";
 
@@ -62,6 +74,10 @@ struct Args {
     weapons: Vec<Option<WeaponKind>>,
     /// `None` is the director steering.
     pins: Vec<Option<Difficulty>>,
+    rules: Vec<PickupRules>,
+    /// `None` is the tier's own policy.
+    pickup_policies: Vec<Option<PickupPolicy>>,
+    spends: Vec<Option<SpendPolicy>>,
     jsonl: Option<PathBuf>,
     human: bool,
     bots: bool,
@@ -99,6 +115,9 @@ fn parse(mut raw: impl Iterator<Item = String>) -> Result<Args, String> {
         tiers: Vec::new(),
         weapons: Vec::new(),
         pins: Vec::new(),
+        rules: Vec::new(),
+        pickup_policies: Vec::new(),
+        spends: Vec::new(),
         jsonl: None,
         human: false,
         bots: true,
@@ -124,6 +143,9 @@ fn parse(mut raw: impl Iterator<Item = String>) -> Result<Args, String> {
                     .filter_map(|l| Difficulty::new(l).ok().map(Some))
                     .collect();
             }
+            "--pickups" => args.rules.push(value()?.parse()?),
+            "--pickup-policy" => args.pickup_policies.push(Some(value()?.parse()?)),
+            "--spend" => args.spends.push(Some(value()?.parse()?)),
             "--jsonl" => args.jsonl = Some(PathBuf::from(value()?)),
             "--watch" => args.watch = true,
             "--watch-all" => args.watch_all = true,
@@ -148,6 +170,15 @@ fn parse(mut raw: impl Iterator<Item = String>) -> Result<Args, String> {
     }
     if args.pins.is_empty() {
         args.pins.push(None);
+    }
+    if args.rules.is_empty() {
+        args.rules.push(PickupRules::Classic);
+    }
+    if args.pickup_policies.is_empty() {
+        args.pickup_policies.push(None);
+    }
+    if args.spends.is_empty() {
+        args.spends.push(None);
     }
     Ok(args)
 }
@@ -196,14 +227,23 @@ fn main() -> ExitCode {
     for &tier in tiers {
         for &weapon_lock in &args.weapons {
             for &pinned in &args.pins {
-                for seed in 1..=args.seeds.max(1) {
-                    configs.push(SessionConfig {
-                        tier,
-                        seed,
-                        minutes: args.minutes,
-                        weapon_lock,
-                        pinned,
-                    });
+                for &pickup_rules in &args.rules {
+                    for &pickup_policy in &args.pickup_policies {
+                        for &spend in &args.spends {
+                            for seed in 1..=args.seeds.max(1) {
+                                configs.push(SessionConfig {
+                                    tier,
+                                    seed,
+                                    minutes: args.minutes,
+                                    weapon_lock,
+                                    pinned,
+                                    pickup_rules,
+                                    pickup_policy,
+                                    spend,
+                                });
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -219,7 +259,21 @@ fn main() -> ExitCode {
             .weapon_lock
             .map_or_else(String::new, |w| format!(" [{w} only]"));
         let pin = c.pinned.map_or_else(String::new, |d| format!(" @{d}"));
-        (format!("{} #{}{lock}{pin}", c.tier, c.seed), log)
+        let rules = if c.pickup_rules == PickupRules::Classic {
+            String::new()
+        } else {
+            format!(" {{{}}}", c.pickup_rules)
+        };
+        let policy = c
+            .pickup_policy
+            .map_or_else(String::new, |p| format!(" take:{}", policy_name(p)));
+        let spend = c
+            .spend
+            .map_or_else(String::new, |s| format!(" spend:{}", spend_name(s)));
+        (
+            format!("{} #{}{lock}{pin}{rules}{policy}{spend}", c.tier, c.seed),
+            log,
+        )
     }));
     if let Some(dir) = &args.jsonl
         && let Err(e) = save_all(dir, &configs, &logs)
@@ -329,7 +383,12 @@ fn save_all(
         let pin = c
             .pinned
             .map_or_else(|| "director".to_owned(), |d| d.to_string());
-        let name = format!("{}-{weapon}-{pin}-{}.jsonl", c.tier, c.seed);
+        let policy = c.pickup_policy.map_or("own", policy_name);
+        let spend = c.spend.map_or("own", spend_name);
+        let name = format!(
+            "{}-{weapon}-{pin}-{}-{policy}-{spend}-{}.jsonl",
+            c.tier, c.pickup_rules, c.seed
+        );
         save_session(&dir.join(name), log)?;
     }
     Ok(())
@@ -341,6 +400,22 @@ const fn weapon_name(weapon: WeaponKind) -> &'static str {
         WeaponKind::Projectile => "projectile",
         WeaponKind::Hitscan => "hitscan",
         WeaponKind::Melee => "melee",
+    }
+}
+
+const fn policy_name(policy: PickupPolicy) -> &'static str {
+    match policy {
+        PickupPolicy::Ignore => "ignore",
+        PickupPolicy::Greedy => "greedy",
+        PickupPolicy::Weighed => "weighed",
+    }
+}
+
+const fn spend_name(spend: SpendPolicy) -> &'static str {
+    match spend {
+        SpendPolicy::Hoard => "hoard",
+        SpendPolicy::Panic => "panic",
+        SpendPolicy::Eager => "eager",
     }
 }
 

@@ -2,7 +2,7 @@
 //! holding `W` `A` `S` `D`, switches weapons with `1` `2` `3`, and aims and
 //! fires by writing the same `FireRequested` the mouse would.
 
-use super::choices::{choose_weapon, reach, wants_pickup};
+use super::choices::{choose_weapon, reach, wants_pickup, wants_shard, wants_to_spend};
 use super::perception::{DelayedView, Rng, Snapshot};
 use super::steering::{dodge, eight_way, nearest, rotate, wall_push};
 #[cfg(doc)]
@@ -12,7 +12,7 @@ use crate::app_setup::api::{FIXED_HZ, SimSet};
 use crate::arena::api::ArenaBounds;
 use crate::combat::api::Health;
 use crate::enemies::api::Enemy;
-use crate::pickups::api::PickupKind;
+use crate::pickups::api::{PickupKind, Shard, ShardsChanged};
 use crate::player::api::{FireRequested, Player};
 use crate::weapons::api::WeaponKind;
 use bevy::prelude::*;
@@ -54,6 +54,8 @@ struct Brain {
     until_decision_secs: f32,
     aim_offset_rad: f32,
     weapon: WeaponKind,
+    /// Shards held; a player always knows their own count, so not delayed.
+    held_shards: u32,
 }
 
 impl Brain {
@@ -67,6 +69,7 @@ impl Brain {
             until_decision_secs: 0.0,
             aim_offset_rad: 0.0,
             weapon: WeaponKind::default(),
+            held_shards: 0,
         }
     }
 }
@@ -75,13 +78,19 @@ fn perceive(
     mut brain: ResMut<Brain>,
     enemies: Query<&Transform, With<Enemy>>,
     pickups: Query<(&Transform, &PickupKind)>,
+    shards: Query<&Transform, With<Shard>>,
+    mut held: MessageReader<ShardsChanged>,
 ) {
+    if let Some(latest) = held.read().last() {
+        brain.held_shards = latest.held;
+    }
     brain.view.push(Snapshot {
         enemies: enemies.iter().map(|t| t.translation.truncate()).collect(),
         pickups: pickups
             .iter()
             .map(|(t, kind)| (t.translation.truncate(), *kind))
             .collect(),
+        shards: shards.iter().map(|t| t.translation.truncate()).collect(),
     });
 }
 
@@ -104,6 +113,8 @@ fn act(
         return;
     };
     let p = brain.params;
+    // Space is tapped, not held: one press per blast.
+    keys.release(KeyCode::Space);
 
     brain.until_decision_secs -= time.delta_secs();
     if brain.until_decision_secs <= 0.0 {
@@ -120,6 +131,9 @@ fn act(
             keys.press(key);
         }
         brain.aim_offset_rad = brain.rng.wobble() * p.aim_error_deg.to_radians();
+        if wants_to_spend(p.spend, brain.held_shards, hp, own, &seen.enemies) {
+            keys.press(KeyCode::Space);
+        }
     }
 
     let Some(target) = nearest(own, seen.enemies.iter().copied()) else {
@@ -170,7 +184,13 @@ fn movement_wish(
         .iter()
         .map(|(at, _)| *at)
         .filter(|at| at.distance(own) <= p.pickup_reach);
-    if let Some(at) = nearest(own, reachable) {
+    let shards = seen
+        .shards
+        .iter()
+        .copied()
+        .filter(|at| at.distance(own) <= p.pickup_reach)
+        .filter(|_| wants_shard(p.pickups, threat_distance));
+    if let Some(at) = nearest(own, reachable.chain(shards)) {
         wish += (at - own).normalize_or_zero() * PICKUP_PULL;
     }
     if p.pickups == PickupPolicy::Weighed {

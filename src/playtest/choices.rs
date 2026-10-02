@@ -1,7 +1,7 @@
 //! Pure decisions a simulated player makes: which pickup is worth it, which
 //! weapon to hold, and whether a target is in reach. Unit-tested.
 
-use super::tier::{PickupPolicy, WeaponPolicy};
+use super::tier::{PickupPolicy, SpendPolicy, WeaponPolicy};
 use crate::pickups::api::PickupKind;
 use crate::weapons::api::WeaponKind;
 use bevy::math::Vec2;
@@ -43,6 +43,46 @@ pub fn wants_pickup(
     }
 }
 
+/// Is a shard worth walking to right now? Weighed pickers stay out of crowds.
+pub fn wants_shard(policy: PickupPolicy, nearest_threat: f32) -> bool {
+    match policy {
+        PickupPolicy::Ignore => false,
+        PickupPolicy::Greedy => true,
+        PickupPolicy::Weighed => nearest_threat > DANGER_RADIUS,
+    }
+}
+
+/// What the bot believes about the shard blast. Mirrors the pickups' own
+/// PLACEHOLDER numbers (fewest shards, smallest radius); update both together.
+const SPEND_MIN: u32 = 3;
+const BLAST_REACH: f32 = 150.0;
+/// PLACEHOLDER: a panicking bot blasts with this many enemies in reach, or
+/// below this share of hp with anything in reach.
+const PANIC_CROWD: usize = 4;
+const PANIC_HP: f32 = 0.4;
+
+/// Spend the held shards on a blast now?
+pub fn wants_to_spend(
+    policy: SpendPolicy,
+    held: u32,
+    hp_fraction: f32,
+    own: Vec2,
+    threats: &[Vec2],
+) -> bool {
+    if held < SPEND_MIN {
+        return false;
+    }
+    let in_reach = threats
+        .iter()
+        .filter(|t| t.distance(own) <= BLAST_REACH)
+        .count();
+    match policy {
+        SpendPolicy::Hoard => false,
+        SpendPolicy::Eager => in_reach > 0,
+        SpendPolicy::Panic => in_reach >= PANIC_CROWD || (hp_fraction < PANIC_HP && in_reach > 0),
+    }
+}
+
 pub fn choose_weapon(policy: WeaponPolicy, own: Vec2, threats: &[Vec2]) -> WeaponKind {
     match policy {
         WeaponPolicy::Fixed(weapon) => weapon,
@@ -71,6 +111,19 @@ mod tests {
         assert!(!wants_pickup(p, PickupKind::Mend, 0.3, 50.0));
         assert!(!wants_pickup(p, PickupKind::Mend, 0.9, 400.0));
         assert!(!wants_pickup(p, PickupKind::Overdrive, 0.2, 400.0));
+    }
+
+    #[test]
+    fn spend_policies_differ_in_when_they_blast() {
+        let own = Vec2::ZERO;
+        let one = [Vec2::X * 50.0];
+        let crowd = [Vec2::X * 50.0; 4];
+        assert!(!wants_to_spend(SpendPolicy::Eager, 2, 1.0, own, &crowd));
+        assert!(wants_to_spend(SpendPolicy::Eager, 3, 1.0, own, &one));
+        assert!(!wants_to_spend(SpendPolicy::Panic, 3, 1.0, own, &one));
+        assert!(wants_to_spend(SpendPolicy::Panic, 3, 0.2, own, &one));
+        assert!(wants_to_spend(SpendPolicy::Panic, 3, 1.0, own, &crowd));
+        assert!(!wants_to_spend(SpendPolicy::Hoard, 10, 0.1, own, &crowd));
     }
 
     #[test]

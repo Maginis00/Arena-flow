@@ -9,6 +9,8 @@ use std::collections::VecDeque;
 pub struct Snapshot {
     pub enemies: Vec<Vec2>,
     pub pickups: Vec<(Vec2, PickupKind)>,
+    /// Shards on the floor (shard pickup rules only).
+    pub shards: Vec<Vec2>,
 }
 
 /// A fixed-length delay line of snapshots. Until it fills, the bot sees the
@@ -73,7 +75,7 @@ mod tests {
     fn with_enemy(x: f32) -> Snapshot {
         Snapshot {
             enemies: vec![Vec2::new(x, 0.0)],
-            pickups: Vec::new(),
+            ..Default::default()
         }
     }
 

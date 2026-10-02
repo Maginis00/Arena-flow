@@ -32,7 +32,7 @@ pub(super) fn measure_danger(
         .read()
         .filter_map(|hit| match hit.source {
             HitSource::Contact(enemy) => Some(enemy),
-            HitSource::Shot { .. } => None,
+            HitSource::Shot { .. } | HitSource::Blast => None,
         })
         .collect();
     if !machine.in_play() {
