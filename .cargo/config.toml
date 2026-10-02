@@ -2,3 +2,7 @@
 # 16 GB machine out of memory.
 [build]
 jobs = 3
+
+[alias]
+# The game with sound and particles (feature `fx`), for playing yourself.
+play = "run --features fx"
