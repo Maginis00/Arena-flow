@@ -1,8 +1,8 @@
 //! flow_arena: a 2D wave-arena test harness for a flow-channel difficulty director.
 //!
-//! One module per domain, each exposing a `Plugin` and an `api` module. Other
-//! domains may only use items from `<domain>::api` (plus the plugin type itself).
-//! Everything else in a domain is private to it.
+//! One module per domain, each exposing a `Plugin`. A domain's root file decides
+//! what is public with `pub use`; its submodules stay private, so other domains
+//! can only reach `crate::<domain>::Item`.
 
 // Bevy system signatures are type-heavy by nature; Bevy itself recommends
 // allowing this lint for ECS code.
@@ -27,7 +27,7 @@ pub mod weapons;
 use bevy::app::{PluginGroup, PluginGroupBuilder};
 
 /// Every gameplay plugin, in no particular order: ordering lives in
-/// [`app_setup::api::SimSet`], not in registration order.
+/// [`app_setup::SimSet`], not in registration order.
 pub struct FlowArenaPlugins;
 
 impl PluginGroup for FlowArenaPlugins {

@@ -1,24 +1,51 @@
 //! Enemy spawning from a wave spec (outside a safe radius around the player),
 //! movement per kind, contact damage, and the ranged and summoning attacks.
 //!
-//! Which kinds a wave holds comes from [`EnemyMix`](api::EnemyMix); the grunt
+//! Which kinds a wave holds comes from [`EnemyMix`]; the grunt
 //! mix is the original game.
 
-pub mod api;
 mod attacks;
 mod kinds;
 mod movement;
 mod placement;
 mod spawning;
 
-use crate::app_setup::api::SimSet;
-use crate::arena::api::ArenaBounds;
-use crate::combat::api::{Hit, HitSource, Hitbox};
-use crate::player::api::Player;
-use crate::waves::api::{WaveCleared, WaveFailed};
-use api::{ChargeTell, Enemy, EnemyBolt, EnemyMix, EnemySpawned};
+pub use kinds::{EnemyKind, EnemyMix};
+
+use crate::app_setup::SimSet;
+use crate::arena::ArenaBounds;
+use crate::combat::{Hit, HitSource, Hitbox};
+use crate::player::Player;
+use crate::waves::{WaveCleared, WaveFailed};
 use bevy::prelude::*;
 use movement::Charge;
+
+/// Marker for enemy entities.
+#[derive(Component, Debug, Clone, Copy, Default)]
+pub struct Enemy;
+
+/// What a charger shows: the direction it will dash in while it winds up,
+/// `None` otherwise. Every charger carries one.
+#[derive(Component, Debug, Clone, Copy, PartialEq, Default)]
+pub struct ChargeTell {
+    pub aim: Option<Vec2>,
+}
+
+/// A bolt fired by an enemy. Hurts only the player; player shots pass through it.
+#[derive(Component, Debug, Clone, Copy)]
+pub struct EnemyBolt {
+    pub damage: u32,
+}
+
+/// An enemy from the current wave entered the arena.
+#[derive(Message, Debug, Clone, Copy)]
+pub struct EnemySpawned {
+    pub enemy: Entity,
+    pub kind: EnemyKind,
+    /// Not taken from the wave's own count: called in by a summoner, or the
+    /// rest of a swarm after its first member.
+    pub extra: bool,
+}
 
 /// PLACEHOLDER: seconds between contact hits from one enemy.
 const CONTACT_COOLDOWN_SECS: f32 = 0.75;

@@ -1,13 +1,13 @@
 //! The two attacks beyond touching the player: shooters fire bolts, and
 //! summoners call in grunts while they live.
 
-use super::api::{Enemy, EnemyBolt, EnemyKind, EnemySpawned};
 use super::kinds::scaled;
 use super::spawning::{SpawnQueue, spawn_enemy};
-use crate::arena::api::{ArenaBounds, DespawnOutsideArena};
-use crate::combat::api::{Hit, HitSource, Hitbox};
-use crate::player::api::Player;
-use crate::waves::api::WaveSpec;
+use super::{Enemy, EnemyBolt, EnemyKind, EnemySpawned};
+use crate::arena::{ArenaBounds, DespawnOutsideArena};
+use crate::combat::{Hit, HitSource, Hitbox};
+use crate::player::Player;
+use crate::waves::WaveSpec;
 use bevy::prelude::*;
 
 /// PLACEHOLDER: seconds between a shooter's bolts.

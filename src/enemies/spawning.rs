@@ -1,13 +1,13 @@
 //! Turning a wave spec into enemies: the spawn queue, which kind each slot
 //! gets, where it appears, and everything a new enemy carries.
 
-use super::api::{ChargeTell, Enemy, EnemyKind, EnemyMix, EnemySpawned};
 use super::movement::{self, Charge};
+use super::{ChargeTell, Enemy, EnemyKind, EnemyMix, EnemySpawned};
 use super::{Chaser, ContactCooldown, Gait, attacks, kinds, placement};
-use crate::arena::api::ArenaBounds;
-use crate::combat::api::{Health, Hitbox, Team};
-use crate::player::api::Player;
-use crate::waves::api::{WaveSpec, WaveStarted};
+use crate::arena::ArenaBounds;
+use crate::combat::{Health, Hitbox, Team};
+use crate::player::Player;
+use crate::waves::{WaveSpec, WaveStarted};
 use bevy::prelude::*;
 
 /// PLACEHOLDER: seconds between enemy spawns within a wave.

@@ -1,3 +1,6 @@
+//! The difficulty level, the levers it sets for a wave, and the director's
+//! decision facts.
+
 use bevy::prelude::*;
 use std::fmt;
 use thiserror::Error;

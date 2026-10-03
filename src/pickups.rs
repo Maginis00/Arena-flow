@@ -4,20 +4,22 @@
 //! [`PickupRules`] picks the rule set. `Classic` is the default; `Far` and the
 //! shard rules are prototypes for making pickups a real decision.
 
-pub mod api;
+mod effects;
 mod placement;
+mod rules;
 mod shards;
 mod table;
 
-use crate::app_setup::api::SimSet;
-use crate::arena::api::ArenaBounds;
-use crate::combat::api::{EnemyKilled, HealGranted, Hit, HitSource, Hitbox, PlayerDied};
-use crate::enemies::api::{Enemy, EnemyBolt};
-use crate::player::api::Player;
-use crate::waves::api::{WaveCleared, WaveFailed};
-use api::{
-    EffectsChanged, PickupCollected, PickupKind, PickupRules, Shard, ShardsChanged, ShardsSpent,
-};
+pub use effects::{Effects, EffectsChanged, PickupCollected, PickupKind, scale_damage};
+pub use rules::PickupRules;
+pub use shards::{Shard, ShardsChanged, ShardsSpent};
+
+use crate::app_setup::SimSet;
+use crate::arena::ArenaBounds;
+use crate::combat::{EnemyKilled, HealGranted, Hit, HitSource, Hitbox, PlayerDied};
+use crate::enemies::{Enemy, EnemyBolt};
+use crate::player::Player;
+use crate::waves::{WaveCleared, WaveFailed};
 use bevy::prelude::*;
 use table::{Active, def};
 
@@ -84,7 +86,7 @@ struct ActiveEffects {
     /// Shards the player holds (shard rules only).
     held_shards: u32,
     /// Last value written in `EffectsChanged`.
-    published: api::Effects,
+    published: Effects,
 }
 
 /// Space was pressed: spend the held shards. Sampled in `Update`.

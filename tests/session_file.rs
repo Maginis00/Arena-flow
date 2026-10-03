@@ -8,7 +8,7 @@ use bevy::window::PrimaryWindow;
 use flow_arena::FlowArenaPlugins;
 use flow_arena::debug_render::DebugRenderPlugin;
 use flow_arena::playtest::{PlaytestBotPlugin, SkillTier};
-use flow_arena::telemetry::api::{SESSION_DIR, SessionRecord, read_session_file};
+use flow_arena::telemetry::{SESSION_DIR, SessionRecord, read_session_file};
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::time::Duration;

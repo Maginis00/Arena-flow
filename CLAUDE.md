@@ -39,9 +39,11 @@ says what must stay true.
 ## Architecture rules
 
 - Bevy is pinned to `=0.19.1` (Rust 1.95+), edition 2024. Don't bump it casually.
-- One plugin per domain. Each domain's public surface is its `api` module;
-  other domains use only `crate::<domain>::api::*` plus the plugin type.
-  Everything else in a domain is private to it.
+- One plugin per domain. The domain's root file (`src/<domain>.rs`) is its
+  public surface: small public types live in it, bigger ones in a private
+  submodule that the root re-exports with `pub use`. Other domains write
+  `crate::<domain>::Item` and can reach nothing else; submodules stay `mod`,
+  never `pub mod`.
 - Domains talk through `#[derive(Message)]` facts (`MessageWriter` /
   `MessageReader`). Name facts plainly (`EnemyKilled`), with no `Message`
   suffix. Observers only where a message cannot work.
@@ -61,9 +63,10 @@ says what must stay true.
 - Module files use the edition-2018+ style: `src/combat.rs` is the root of the
   `combat` module and `src/combat/` holds its submodules. No `mod.rs` files.
 - Name a file for what it holds (`machine.rs`, `measure.rs`, `transitions.rs`,
-  `decide.rs`, `table.rs`). `api.rs` is the one deliberate exception: it is the
-  domain's public surface, so it is named for its role. No `utils.rs`,
-  `misc.rs` or `helpers.rs`.
+  `decide.rs`, `table.rs`, `health.rs`). No `api.rs`, `utils.rs`, `misc.rs`,
+  `helpers.rs`, and no `prelude`: one crate needs one path per item.
+- The root file reads as the domain's table of contents: module docs, the
+  `mod` lines, the `pub use` list, then the `Plugin` with its whole schedule.
 - Register every system in the domain's `Plugin::build`, so a domain's whole
   schedule reads in one place.
 - Unit tests go in `#[cfg(test)] mod tests` at the bottom of the file they

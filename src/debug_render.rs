@@ -2,14 +2,12 @@
 //! arena border, and brief line flashes for hitscan and melee shots. Gameplay
 //! plugins never add visuals themselves.
 
-pub mod api;
-
-use crate::arena::api::ArenaBounds;
-use crate::combat::api::{Hitbox, Projectile};
-use crate::enemies::api::{ChargeTell, EnemyBolt, EnemyKind};
-use crate::pickups::api::{PickupKind, Shard, ShardsSpent};
-use crate::player::api::Player;
-use crate::weapons::api::{Delivery, ShotFired};
+use crate::arena::ArenaBounds;
+use crate::combat::{Hitbox, Projectile};
+use crate::enemies::{ChargeTell, EnemyBolt, EnemyKind};
+use crate::pickups::{PickupKind, Shard, ShardsSpent};
+use crate::player::Player;
+use crate::weapons::{Delivery, ShotFired};
 use bevy::prelude::*;
 
 const PLAYER_COLOR: Color = Color::srgb(0.0, 0.9, 0.9);

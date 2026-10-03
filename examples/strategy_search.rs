@@ -13,13 +13,14 @@
 //! Without `--take` / `--spend` it searches a built-in grid. Under
 //! `shards-bolts` the spend rules also count enemy bolts as threats.
 
-use flow_arena::enemies::api::EnemyMix;
-use flow_arena::flow_director::api::Difficulty;
-use flow_arena::pickups::api::PickupRules;
+use flow_arena::enemies::EnemyMix;
+use flow_arena::flow_director::Difficulty;
+use flow_arena::pickups::PickupRules;
 use flow_arena::playtest::{
     Outcome, PickupPolicy, SessionConfig, SkillTier, SpendPolicy, Summary, play_many,
     standing_table, standings, verdict_table, verdicts,
 };
+use flow_arena::weapons::SwordBinding;
 use std::process::ExitCode;
 
 const USAGE: &str = "usage: strategy_search [--rules NAME]... [--enemies MIX]... [--tier NAME]... \
@@ -160,6 +161,7 @@ fn main() -> ExitCode {
                                     pickup_rules: rules,
                                     pickup_policy: Some(take),
                                     spend: Some(spend),
+                                    sword: SwordBinding::default(),
                                 });
                             }
                         }

@@ -11,13 +11,13 @@ use super::steering::{dodge, eight_way, nearest, rotate, sidestep, wall_push};
 #[cfg(doc)]
 use super::tier::SkillTier;
 use super::tier::{PickupPolicy, TierParams};
-use crate::app_setup::api::{FIXED_HZ, SimSet};
-use crate::arena::api::ArenaBounds;
-use crate::combat::api::Health;
-use crate::enemies::api::{ChargeTell, Enemy, EnemyBolt, EnemyKind};
-use crate::pickups::api::{PickupKind, Shard, ShardsChanged};
-use crate::player::api::{FireRequested, Player, SwingRequested};
-use crate::weapons::api::{SwordBinding, WeaponKind};
+use crate::app_setup::{FIXED_HZ, SimSet};
+use crate::arena::ArenaBounds;
+use crate::combat::Health;
+use crate::enemies::{ChargeTell, Enemy, EnemyBolt, EnemyKind};
+use crate::pickups::{PickupKind, Shard, ShardsChanged};
+use crate::player::{FireRequested, Player, SwingRequested};
+use crate::weapons::{SwordBinding, WeaponKind};
 use bevy::prelude::*;
 
 /// PLACEHOLDER steering weights shared by every tier.

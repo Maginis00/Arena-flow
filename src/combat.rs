@@ -1,18 +1,21 @@
 //! Hits, health, damage application.
 //!
-//! Resolves every weapon shot into [`Hit`](api::Hit)s (projectile overlaps,
+//! Resolves every weapon shot into [`Hit`]s (projectile overlaps,
 //! hitscan rays, melee arcs), applies all hits and heals, and reports the
 //! outcome as facts.
 
-pub mod api;
+mod health;
+mod hits;
 
-use crate::app_setup::api::SimSet;
-use crate::pickups::api::{Effects, EffectsChanged, scale_damage};
-use crate::weapons::api::{Delivery, ShotFired};
-use api::{
-    EnemyKilled, HealGranted, Health, Hit, HitSource, Hitbox, PlayerDamaged, PlayerDied,
-    PlayerHealed, Projectile, Team,
+pub use health::{Health, Hitbox, Team};
+pub use hits::{
+    EnemyKilled, HealGranted, Hit, HitSource, PlayerDamaged, PlayerDied, PlayerHealed, Projectile,
+    ShotId,
 };
+
+use crate::app_setup::SimSet;
+use crate::pickups::{Effects, EffectsChanged, scale_damage};
+use crate::weapons::{Delivery, ShotFired};
 use bevy::prelude::*;
 
 /// PLACEHOLDER: seconds after taking damage in which the player can't be hurt

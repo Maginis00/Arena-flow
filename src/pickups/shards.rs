@@ -1,11 +1,30 @@
-//! Shard rules (prototype): what holding shards gives and what spending them
-//! does. Pure numbers and functions, unit-tested.
+//! Shard rules (prototype): the shard on the floor, the shard facts, what
+//! holding shards gives and what spending them does. Pure logic, unit-tested.
 //!
 //! The trade-off is the one Devil Daggers makes with gems and homing daggers:
 //! the same resource is a passive bonus while held and a burst when spent, so
 //! every blast costs the bonus you built up.
 
-use super::api::Effects;
+use super::Effects;
+use bevy::prelude::*;
+
+/// A shard on the floor (`Shards` rules). Walk over it to hold it.
+#[derive(Component, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Shard;
+
+/// The player now holds this many shards (picked one up, spent them, or died).
+#[derive(Message, Debug, Clone, Copy)]
+pub struct ShardsChanged {
+    pub held: u32,
+}
+
+/// The player spent shards on a blast.
+#[derive(Message, Debug, Clone, Copy)]
+pub struct ShardsSpent {
+    pub count: u32,
+    pub at: Vec2,
+    pub radius: f32,
+}
 
 /// PLACEHOLDER: one shard drops every this many kills.
 pub const KILLS_PER_SHARD: u32 = 2;

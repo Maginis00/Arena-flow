@@ -1,6 +1,6 @@
 //! What each pickup does. Pure data and functions, unit-tested.
 
-use super::api::{Effects, PickupKind};
+use super::{Effects, PickupKind};
 
 /// PLACEHOLDER numbers for every pickup.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -90,7 +90,7 @@ impl Active {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::pickups::api::scale_damage;
+    use crate::pickups::scale_damage;
 
     #[test]
     fn every_pickup_has_a_downside() {

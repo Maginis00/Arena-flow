@@ -54,17 +54,15 @@
 //! cargo run --example playtest -- --watch-all
 //! ```
 
-use flow_arena::enemies::api::EnemyMix;
-use flow_arena::flow_director::api::Difficulty;
-use flow_arena::pickups::api::PickupRules;
+use flow_arena::enemies::EnemyMix;
+use flow_arena::flow_director::Difficulty;
+use flow_arena::pickups::PickupRules;
 use flow_arena::playtest::{
     Named, PickupPolicy, Quadrant, SessionConfig, SkillTier, SpendPolicy, Summary, WatchConfig,
     flow_table, pickup_table, play_many, table, watch, weapon_table,
 };
-use flow_arena::telemetry::api::{
-    SESSION_DIR, SessionRecord, WEAPONS, read_session_file, save_session,
-};
-use flow_arena::weapons::api::{SwordBinding, WeaponKind};
+use flow_arena::telemetry::{SESSION_DIR, SessionRecord, WEAPONS, read_session_file, save_session};
+use flow_arena::weapons::{SwordBinding, WeaponKind};
 use std::path::PathBuf;
 use std::process::{Command, ExitCode};
 

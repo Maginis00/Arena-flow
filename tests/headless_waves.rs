@@ -6,13 +6,13 @@ use bevy::input::{ButtonState, InputPlugin};
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 use flow_arena::FlowArenaPlugins;
-use flow_arena::app_setup::api::SimSet;
+use flow_arena::app_setup::SimSet;
 use flow_arena::debug_render::DebugRenderPlugin;
-use flow_arena::enemies::api::Enemy;
-use flow_arena::flow_director::api::{DecisionReason, DifficultyAdjusted};
-use flow_arena::player::api::{FireRequested, Player};
-use flow_arena::waves::api::WaveReport;
-use flow_arena::weapons::api::{ShotFired, WeaponKind};
+use flow_arena::enemies::Enemy;
+use flow_arena::flow_director::{DecisionReason, DifficultyAdjusted};
+use flow_arena::player::{FireRequested, Player};
+use flow_arena::waves::WaveReport;
+use flow_arena::weapons::{ShotFired, WeaponKind};
 use std::time::Duration;
 
 #[derive(Resource, Default)]

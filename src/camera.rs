@@ -2,10 +2,8 @@
 //! so it never shows much beyond the arena. Presentation only, so it runs in
 //! `Update`, not in the simulation.
 
-pub mod api;
-
-use crate::arena::api::ArenaBounds;
-use crate::player::api::Player;
+use crate::arena::ArenaBounds;
+use crate::player::Player;
 use bevy::prelude::*;
 
 /// PLACEHOLDER: how quickly the camera catches up (per second, exponential).

@@ -1,10 +1,10 @@
 //! Short headless runs of the playtest bots through the real plugins.
 //! The full report is `cargo run --release --example playtest`.
 
-use flow_arena::enemies::api::EnemyMix;
-use flow_arena::pickups::api::PickupRules;
+use flow_arena::enemies::EnemyMix;
+use flow_arena::pickups::PickupRules;
 use flow_arena::playtest::{SessionConfig, SkillTier, Summary, play};
-use flow_arena::weapons::api::SwordBinding;
+use flow_arena::weapons::SwordBinding;
 
 fn settle_with(tier: SkillTier, enemies: EnemyMix, pickup_rules: PickupRules) -> Summary {
     let log = play(SessionConfig {

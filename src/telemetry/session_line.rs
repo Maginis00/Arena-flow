@@ -1,11 +1,11 @@
 //! The session file format: one flat JSON object per wave, enums written as
 //! lowercase words so the files stay readable and stable.
 
-use super::api::{PickupTaken, WEAPONS, WaveRecord, WeaponTally, weapon_slot};
-use crate::flow_director::api::{DecisionReason, Difficulty};
-use crate::pickups::api::PickupKind;
-use crate::waves::api::{Danger, WaveIndex, WaveReport};
-use crate::weapons::api::WeaponKind;
+use super::{PickupTaken, WEAPONS, WaveRecord, WeaponTally, weapon_slot};
+use crate::flow_director::{DecisionReason, Difficulty};
+use crate::pickups::PickupKind;
+use crate::waves::{Danger, WaveIndex, WaveReport};
+use crate::weapons::WeaponKind;
 use serde::{Deserialize, Serialize};
 
 /// One line of a session file. Flat, stable names; enums as lowercase words.

@@ -1,7 +1,7 @@
 //! Skill tiers for simulated players. Every number here is a PLACEHOLDER
 //! proposal: a tier is a bundle of measurable human limits, not a strategy.
 
-use crate::weapons::api::WeaponKind;
+use crate::weapons::WeaponKind;
 use std::fmt;
 use std::str::FromStr;
 
