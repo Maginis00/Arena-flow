@@ -1,12 +1,10 @@
 //! What telemetry records for a whole play session, bot or human. Other
 //! plugins never read this; the playtest report and the session files do.
 
-pub use super::record_file::{SESSION_DIR, read_session_file, save_session};
-
-use crate::flow_director::api::DecisionReason;
-use crate::pickups::api::PickupKind;
-use crate::waves::api::WaveReport;
-use crate::weapons::api::WeaponKind;
+use crate::flow_director::DecisionReason;
+use crate::pickups::PickupKind;
+use crate::waves::WaveReport;
+use crate::weapons::WeaponKind;
 use bevy::prelude::*;
 
 /// Whether a windowed game writes its session file. True by default; the

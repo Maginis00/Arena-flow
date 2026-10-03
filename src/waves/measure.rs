@@ -2,14 +2,12 @@
 //! director output for the wave after it.
 
 use super::machine::{WaveMachine, count};
-use crate::combat::api::{
-    EnemyKilled, Hit, HitSource, PlayerDamaged, PlayerDied, PlayerHealed, ShotId,
-};
-use crate::enemies::api::EnemySpawned;
-use crate::flow_director::api::DifficultyAdjusted;
-use crate::pickups::api::PickupCollected;
-use crate::player::api::PlayerSpawned;
-use crate::weapons::api::ShotFired;
+use crate::combat::{EnemyKilled, Hit, HitSource, PlayerDamaged, PlayerDied, PlayerHealed, ShotId};
+use crate::enemies::EnemySpawned;
+use crate::flow_director::DifficultyAdjusted;
+use crate::pickups::PickupCollected;
+use crate::player::PlayerSpawned;
+use crate::weapons::ShotFired;
 use bevy::prelude::*;
 
 pub(super) fn record_director(

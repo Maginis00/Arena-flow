@@ -1,8 +1,9 @@
 # flow_arena architecture
 
-Single crate, one module per domain. Each domain module has a `Plugin` and an
-`api` submodule. Other domains may use only `<domain>::api` items (and the
-plugin type). Everything else is private to the domain.
+Single crate, one module per domain. Each domain module has a `Plugin`, and its
+root file decides what is public: small public types live in the root, bigger
+ones in a private submodule the root re-exports with `pub use`. Other domains
+write `crate::<domain>::Item`; everything else is private to the domain.
 
 ## Code layout
 
@@ -10,50 +11,60 @@ Modules use the edition-2018+ style: `src/combat.rs` is the root of the
 `combat` module and `src/combat/` holds its submodules, so no file is called
 `mod.rs`. The root file holds the module docs, the `Plugin` with all of the
 domain's system registration, and the systems themselves while the domain is
-small. `api.rs` is the public surface; further files are named for what they
-hold.
+small. Further files are named for what they hold. The root reads as the
+domain's table of contents: docs, `mod` lines, the `pub use` list, the plugin.
 
 ```
 src/
   lib.rs            FlowArenaPlugins
   main.rs           window + plugins only (+ FxPlugin with feature `fx`)
-  app_setup.rs      app_setup/api.rs        SimSet, fixed timestep, 2D camera
-  arena.rs          arena/api.rs            ArenaBounds, out-of-bounds despawn
-  camera.rs         camera/api.rs           light follow (exposes nothing)
-  player.rs         player/api.rs           spawn, input, movement, fire intent
-  weapons.rs        weapons/api.rs          selection, cooldowns, shots
-  combat.rs         combat/api.rs           hit detection and resolution
-  enemies.rs        enemies/api.rs          kinds, mix; root: movement, contact damage
+  app_setup.rs                              SimSet, fixed timestep, 2D camera
+  arena.rs                                  ArenaBounds, out-of-bounds despawn
+  camera.rs                                 light follow (exposes nothing)
+  player.rs                                 spawn, input, movement, fire intent
+  weapons.rs                                shot facts, selection, cooldowns, shots
+                    weapons/kinds.rs        WeaponKind, SwordBinding
+  combat.rs                                 hit detection and resolution
+                    combat/health.rs        Team, Health, Hitbox (+ tests)
+                    combat/hits.rs          ShotId, Projectile, Hit and the outcome facts
+  enemies.rs                                markers, facts; movement, contact damage
                     enemies/spawning.rs     spawn queue, a new enemy and what it carries
-                    enemies/kinds.rs        stats per kind, which kind fills a slot (+ tests)
+                    enemies/kinds.rs        EnemyKind, EnemyMix, stats per kind, which kind fills a slot (+ tests)
                     enemies/movement.rs     chase, hold range, charge (pure + tests)
                     enemies/attacks.rs      shooter bolts, summoner calls
                     enemies/placement.rs    spawn point outside the safe radius (+ tests)
-  pickups.rs        pickups/api.rs          drops, collection, effect timers
+  pickups.rs                                drops, collection, effect timers
+                    pickups/rules.rs        PickupRules: which rule set a run plays
+                    pickups/effects.rs      PickupKind, Effects and their facts
                     pickups/table.rs        what each pickup does (pure + tests)
-  waves.rs          waves/api.rs            the plugin and its system order
+                    pickups/shards.rs       shard types and rules (pure + tests)
+                    pickups/placement.rs    where a dropped pickup lands (pure + tests)
+  waves.rs                                  wave types and facts, the plugin and its system order
                     waves/machine.rs        phase, wave in play, running stats
                     waves/measure.rs        counting facts during a wave
                     waves/danger.rs         how near enemies came, every tick (+ tests)
                     waves/transitions.rs    phase changes, reports, next wave
-  flow_director.rs  flow_director/api.rs    the ECS side: state and two systems
+  flow_director.rs                          the ECS side: state and two systems
+                    flow_director/difficulty.rs  Difficulty, levers, decision facts
                     flow_director/decide.rs the pure decision (+ tests)
                     flow_director/curve.rs  engagement on the flow curve (pure + tests)
-  telemetry.rs      telemetry/api.rs        snapshot + debug overlay
-  debug_render.rs   debug_render/api.rs     boxes, border, shot flashes
-  fx.rs             fx/api.rs               feature `fx`: the plugin and mute key
+  telemetry.rs                              snapshot + debug overlay
+                    telemetry/session_record.rs  SessionRecord and its parts
+  debug_render.rs                           boxes, border, shot flashes
+  fx.rs                                     feature `fx`: the plugin and mute key
                     fx/sounds.rs            one sample per fact (assets/sfx/)
                     fx/particles.rs         death bursts, hit sparks, hurt flash
 ```
 
 Items shared between a domain's root and its submodules are `pub(super)`;
-only `api` is `pub`. Unit tests live in `#[cfg(test)] mod tests` at the bottom
-of the file they test, and don't count toward a file's length. A file splits
-when its non-test code passes roughly 200 lines, by what the code does.
+only what the root re-exports with `pub use` is public. Unit tests live in
+`#[cfg(test)] mod tests` at the bottom of the file they test, and don't count
+toward a file's length. A file splits when its non-test code passes roughly
+200 lines, by what the code does.
 
 ## Plugin graph
 
-Arrows mean "uses the public api of". No domain touches another's private items.
+Arrows mean "uses the public items of". No domain touches another's private items.
 
 ```
 main.rs ── FlowArenaPlugins (lib.rs)
@@ -79,7 +90,7 @@ fx ─────────► combat, enemies (EnemyKind, ChargeTell), weapo
 All cross-plugin facts are `#[derive(Message)]`, written with `MessageWriter`
 and read with `MessageReader`. There are no observers in this slice.
 
-| Message | Owner (api) | Written by | Read by |
+| Message | Owner | Written by | Read by |
 |---|---|---|---|
 | `FireRequested` | player | player `request_fire` | weapons `fire` |
 | `SwingRequested` | player | player `request_fire` | weapons `swing` |
@@ -250,7 +261,7 @@ tier, wave and difficulty. The example's `--watch-all` starts one such process p
 
 ## Session record (telemetry)
 
-Telemetry also builds a `telemetry::api::SessionRecord` in `Update`: one
+Telemetry also builds a `telemetry::SessionRecord` in `Update`: one
 `WaveRecord` per finished wave with the `WaveReport`, the director's decision,
 a `WeaponTally` per weapon (time held, shots, hits, kills by killing blow,
 damage taken and deaths while held) and every `PickupTaken` (time into wave,

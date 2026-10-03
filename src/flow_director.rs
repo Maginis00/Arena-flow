@@ -5,16 +5,19 @@
 //! [`engagement`] places a wave's risk on the flow curve; the director's band
 //! sits around its peak, and the playtest report scores sessions with it.
 
-pub mod api;
 mod curve;
 mod decide;
+mod difficulty;
 
 pub use curve::{FLOW_PEAK, IN_FLOW, engagement};
 pub use decide::{Decision, DirectorConfig, DirectorMemory, decide, levers_for, wave_risk};
+pub use difficulty::{
+    DecisionReason, Difficulty, DifficultyAdjusted, DifficultyOutOfRange, RiskReading, Signal,
+    WaveLevers,
+};
 
-use crate::app_setup::api::SimSet;
-use crate::waves::api::WaveReport;
-use api::{DecisionReason, Difficulty, DifficultyAdjusted};
+use crate::app_setup::SimSet;
+use crate::waves::WaveReport;
 use bevy::prelude::*;
 
 /// PLACEHOLDER: difficulty of the first wave.

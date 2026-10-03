@@ -3,8 +3,8 @@
 //! human's runs can sit in the same report as the bots. Headless apps (tests,
 //! bots) have no window and write nothing.
 
-use super::api::{SessionFileEnabled, SessionRecord, WaveRecord};
 use super::session_line::WaveLine;
+use super::{SessionFileEnabled, SessionRecord, WaveRecord};
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use std::fs::{self, File, OpenOptions};

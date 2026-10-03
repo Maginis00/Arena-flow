@@ -1,10 +1,10 @@
 //! Turns a session record into the numbers that say whether the director keeps a
 //! tier in its own band. Pure; unit-tested.
 
-use crate::flow_director::api::DecisionReason;
+use crate::flow_director::DecisionReason;
 use crate::flow_director::{DirectorConfig, FLOW_PEAK, IN_FLOW, engagement, wave_risk};
-use crate::telemetry::api::SessionRecord;
-use crate::waves::api::WaveReport;
+use crate::telemetry::SessionRecord;
+use crate::waves::WaveReport;
 use std::fmt::Write as _;
 
 /// Engagement under this reads as a lost wave on the flow curve: boring
@@ -146,9 +146,9 @@ pub(super) fn ratio(part: usize, whole: usize) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::flow_director::api::Difficulty;
-    use crate::telemetry::api::WaveRecord;
-    use crate::waves::api::WaveIndex;
+    use crate::flow_director::Difficulty;
+    use crate::telemetry::WaveRecord;
+    use crate::waves::WaveIndex;
 
     fn wave(index: u32, level: u8, died: bool) -> WaveRecord {
         let report = WaveReport {

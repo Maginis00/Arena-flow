@@ -1,6 +1,6 @@
 //! What a simulated player sees: the world as it was a reaction time ago.
 
-use crate::pickups::api::PickupKind;
+use crate::pickups::PickupKind;
 use bevy::math::Vec2;
 use std::collections::VecDeque;
 

@@ -1,11 +1,11 @@
 //! How near enemies come to the player during the wave in play. Every tick
 //! reads positions and contact hits; [`Danger`] in the report sums it up.
 
-use super::api::Danger;
+use super::Danger;
 use super::machine::{Approach, WaveMachine};
-use crate::combat::api::{Hit, HitSource, Hitbox};
-use crate::enemies::api::{Enemy, EnemyBolt};
-use crate::player::api::Player;
+use crate::combat::{Hit, HitSource, Hitbox};
+use crate::enemies::{Enemy, EnemyBolt};
+use crate::player::Player;
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
 

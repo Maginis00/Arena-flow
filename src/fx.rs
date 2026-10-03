@@ -3,7 +3,6 @@
 //! bot windows never see it. It reads simulation messages in `Update` and
 //! writes nothing back: the simulation is the same with or without it.
 
-pub mod api;
 mod particles;
 mod sounds;
 

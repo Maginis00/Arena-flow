@@ -1,7 +1,7 @@
 //! The pure decision. No ECS types beyond plain data; unit-tested below.
 
-use super::api::{DecisionReason, Difficulty, RiskReading, Signal, WaveLevers};
-use crate::waves::api::WaveReport;
+use super::{DecisionReason, Difficulty, RiskReading, Signal, WaveLevers};
+use crate::waves::WaveReport;
 
 /// The flow band and how the director moves toward it. All PLACEHOLDER values.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -158,8 +158,8 @@ pub fn levers_for(difficulty: Difficulty) -> WaveLevers {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::flow_director::api::DifficultyOutOfRange;
-    use crate::waves::api::WaveIndex;
+    use crate::flow_director::DifficultyOutOfRange;
+    use crate::waves::WaveIndex;
 
     fn difficulty(level: u8) -> Difficulty {
         Difficulty::new(level).expect("test difficulty in range")

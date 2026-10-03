@@ -2,8 +2,8 @@
 //! on weapon hits, and a red screen flash when the player is hurt. No
 //! randomness: directions are spread evenly and turned a little each burst.
 
-use crate::combat::api::{EnemyKilled, Hit, HitSource, PlayerDamaged};
-use crate::enemies::api::EnemyKind;
+use crate::combat::{EnemyKilled, Hit, HitSource, PlayerDamaged};
+use crate::enemies::EnemyKind;
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
 

@@ -2,8 +2,8 @@
 //! weapon to hold, and whether a target is in reach. Unit-tested.
 
 use super::tier::{PickupPolicy, SpendPolicy, WeaponPolicy};
-use crate::pickups::api::PickupKind;
-use crate::weapons::api::{SwordBinding, WeaponKind};
+use crate::pickups::PickupKind;
+use crate::weapons::{SwordBinding, WeaponKind};
 use bevy::math::Vec2;
 
 /// What the bot believes about weapon reach. Mirrors the weapons' own

@@ -2,10 +2,10 @@
 //! coarse map and exact offsets to the closest enemies. Pure; unit-tested.
 
 use crate::flow_director::wave_risk;
-use crate::pickups::api::{Effects, PickupKind};
-use crate::telemetry::api::SessionRecord;
-use crate::waves::api::{WaveReport, WaveSpec};
-use crate::weapons::api::WeaponKind;
+use crate::pickups::{Effects, PickupKind};
+use crate::telemetry::SessionRecord;
+use crate::waves::{WaveReport, WaveSpec};
+use crate::weapons::WeaponKind;
 use bevy::math::Vec2;
 use std::fmt::Write as _;
 

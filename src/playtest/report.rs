@@ -2,8 +2,8 @@
 //! runs and a human's session files sit side by side.
 
 use super::summary::{Summary, mean, ratio};
-use crate::pickups::api::PickupKind;
-use crate::telemetry::api::{SessionRecord, WEAPONS};
+use crate::pickups::PickupKind;
+use crate::telemetry::{SessionRecord, WEAPONS};
 use std::fmt::Write as _;
 
 /// A session with the name it gets in the report.
@@ -115,7 +115,7 @@ pub fn pickup_table(rows: &[Named]) -> String {
             if taken.is_empty() {
                 continue;
             }
-            let hp = |p: &&crate::telemetry::api::PickupTaken| p.hp as f32 / p.max_hp.max(1) as f32;
+            let hp = |p: &&crate::telemetry::PickupTaken| p.hp as f32 / p.max_hp.max(1) as f32;
             let low = taken.iter().filter(|p| hp(p) < 0.5).count();
             let _ = writeln!(
                 out,

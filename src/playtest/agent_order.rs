@@ -3,7 +3,7 @@
 //! for how long. Pure parsing; unit-tested.
 
 use super::tier::MAX_HAND_SKILL;
-use crate::weapons::api::WeaponKind;
+use crate::weapons::WeaponKind;
 use bevy::math::Vec2;
 use std::fmt;
 use std::str::FromStr;

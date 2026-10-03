@@ -1,7 +1,7 @@
 //! Moving the wave machine between phases and announcing every change.
 
-use super::api::{WaveCleared, WaveFailed, WaveReport, WaveSpec, WaveStarted};
 use super::machine::{Outcome, WaveMachine, WavePhase, WaveStats, count};
+use super::{WaveCleared, WaveFailed, WaveReport, WaveSpec, WaveStarted};
 use bevy::prelude::*;
 
 /// PLACEHOLDER: seconds between the end of a wave and the start of the next.
