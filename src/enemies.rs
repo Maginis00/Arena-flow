@@ -18,7 +18,7 @@ use crate::combat::{Hit, HitSource, Hitbox};
 use crate::player::Player;
 use crate::waves::{WaveCleared, WaveFailed};
 use bevy::prelude::*;
-use movement::Charge;
+use movement::{Charge, Flock};
 
 /// Marker for enemy entities.
 #[derive(Component, Debug, Clone, Copy, Default)]
@@ -29,6 +29,13 @@ pub struct Enemy;
 #[derive(Component, Debug, Clone, Copy, PartialEq, Default)]
 pub struct ChargeTell {
     pub aim: Option<Vec2>,
+}
+
+/// What a swarm shows: true while the pack holds still before it dives at
+/// the player. Every swarm member carries one.
+#[derive(Component, Debug, Clone, Copy, PartialEq, Default)]
+pub struct DiveTell {
+    pub winding_up: bool,
 }
 
 /// A bolt fired by an enemy. Hurts only the player; player shots pass through it.
@@ -106,6 +113,11 @@ enum Gait {
         charge: Charge,
         cap: f32,
     },
+    /// `orbit` (+1 or -1) is the way the pack circles the player.
+    Flock {
+        flock: Flock,
+        orbit: f32,
+    },
 }
 
 /// Seconds until this enemy may deal contact damage again.
@@ -125,6 +137,7 @@ fn move_enemies(
             &Chaser,
             &mut Gait,
             Option<&mut ChargeTell>,
+            Option<&mut DiveTell>,
         ),
         With<Enemy>,
     >,
@@ -135,7 +148,7 @@ fn move_enemies(
     };
     let target = player.translation.truncate();
     let dt = time.delta_secs();
-    for (mut transform, hitbox, chaser, mut gait, tell) in &mut enemies {
+    for (mut transform, hitbox, chaser, mut gait, tell, dive_tell) in &mut enemies {
         let here = transform.translation.truncate();
         let to_player = target - here;
         let heading = match *gait {
@@ -150,16 +163,28 @@ fn move_enemies(
                 }
                 heading
             }
+            Gait::Flock { flock, orbit } => {
+                let (next, heading) = flock.step(to_player, orbit, dt);
+                *gait = Gait::Flock { flock: next, orbit };
+                if let Some(mut tell) = dive_tell {
+                    tell.set_if_neq(DiveTell {
+                        winding_up: next.winding_up(),
+                    });
+                }
+                heading
+            }
         };
         let velocity = match *gait {
             Gait::Charge { cap, .. } => (heading * chaser.speed).clamp_length_max(cap),
-            Gait::Chase | Gait::HoldRange { .. } => heading * chaser.speed,
+            Gait::Chase | Gait::HoldRange { .. } | Gait::Flock { .. } => heading * chaser.speed,
         };
         let next = here + velocity * dt;
-        // Chasers head inward anyway; this keeps ranged kinds and dashes in.
+        // Chasers head inward anyway; this keeps ranged kinds, dashes and swarms in.
         let next = match *gait {
             Gait::Chase => next,
-            Gait::HoldRange { .. } | Gait::Charge { .. } => bounds.clamp(next, hitbox.half_extents),
+            Gait::HoldRange { .. } | Gait::Charge { .. } | Gait::Flock { .. } => {
+                bounds.clamp(next, hitbox.half_extents)
+            }
         };
         transform.translation = next.extend(transform.translation.z);
     }

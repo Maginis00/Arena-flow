@@ -10,9 +10,9 @@ use flow_arena::app_setup::SimSet;
 use flow_arena::debug_render::DebugRenderPlugin;
 use flow_arena::enemies::Enemy;
 use flow_arena::flow_director::{DecisionReason, DifficultyAdjusted};
-use flow_arena::player::{FireRequested, Player};
+use flow_arena::player::{FireRequested, Player, SwingRequested};
 use flow_arena::waves::WaveReport;
-use flow_arena::weapons::{ShotFired, WeaponKind};
+use flow_arena::weapons::{ShotFired, SwordBinding, WeaponKind};
 use std::time::Duration;
 
 #[derive(Resource, Default)]
@@ -137,8 +137,9 @@ fn idle_player_retries_the_wave_and_difficulty_falls_to_floor() {
     assert_eq!(&ran_at[..3], &[3.0, 2.0, 1.0], "ran at: {ran_at:?}");
 }
 
-fn bot_clears_waves(key: KeyCode, digit: &str, weapon: WeaponKind) {
+fn bot_clears_waves(key: KeyCode, digit: &str, weapon: WeaponKind, sword: SwordBinding) {
     let mut app = headless_app();
+    app.insert_resource(sword);
     app.add_systems(FixedUpdate, aim_bot.in_set(SimSet::Intent));
     press(&mut app, key, digit);
     run_minutes(&mut app, 3);
@@ -173,15 +174,84 @@ fn bot_clears_waves(key: KeyCode, digit: &str, weapon: WeaponKind) {
 
 #[test]
 fn aim_bot_clears_waves_with_projectile() {
-    bot_clears_waves(KeyCode::Digit1, "1", WeaponKind::Projectile);
+    bot_clears_waves(
+        KeyCode::Digit1,
+        "1",
+        WeaponKind::Projectile,
+        SwordBinding::default(),
+    );
 }
 
 #[test]
 fn aim_bot_clears_waves_with_hitscan() {
-    bot_clears_waves(KeyCode::Digit2, "2", WeaponKind::Hitscan);
+    bot_clears_waves(
+        KeyCode::Digit2,
+        "2",
+        WeaponKind::Hitscan,
+        SwordBinding::default(),
+    );
 }
 
 #[test]
-fn aim_bot_clears_waves_with_melee() {
-    bot_clears_waves(KeyCode::Digit3, "3", WeaponKind::Melee);
+fn aim_bot_clears_waves_with_melee_as_weapon_3() {
+    bot_clears_waves(KeyCode::Digit3, "3", WeaponKind::Melee, SwordBinding::Key3);
+}
+
+#[test]
+fn key_3_selects_nothing_with_the_sword_on_the_right_mouse_button() {
+    let mut app = headless_app();
+    app.add_systems(FixedUpdate, aim_bot.in_set(SimSet::Intent));
+    press(&mut app, KeyCode::Digit3, "3");
+    run_minutes(&mut app, 1);
+    let observed = app.world().resource::<Observed>();
+    assert!(!observed.weapons_fired.is_empty());
+    assert!(
+        observed
+            .weapons_fired
+            .iter()
+            .all(|w| *w == WeaponKind::Projectile)
+    );
+}
+
+/// Swings at the nearest enemy every tick, standing still.
+fn swing_bot(
+    player: Query<(Entity, &Transform), With<Player>>,
+    enemies: Query<&Transform, With<Enemy>>,
+    mut swing: MessageWriter<SwingRequested>,
+) {
+    for (shooter, transform) in &player {
+        let origin = transform.translation.truncate();
+        let nearest = enemies
+            .iter()
+            .map(|t| t.translation.truncate())
+            .min_by(|a, b| {
+                a.distance_squared(origin)
+                    .total_cmp(&b.distance_squared(origin))
+            });
+        if let Some(target) = nearest {
+            let direction = (target - origin).normalize_or_zero();
+            if direction != Vec2::ZERO {
+                swing.write(SwingRequested {
+                    shooter,
+                    origin,
+                    direction,
+                });
+            }
+        }
+    }
+}
+
+#[test]
+fn the_sword_swings_on_its_own_cooldown() {
+    let mut app = headless_app();
+    app.add_systems(FixedUpdate, swing_bot.in_set(SimSet::Intent));
+    run_minutes(&mut app, 1);
+    let swings = &app.world().resource::<Observed>().weapons_fired;
+    assert!(swings.iter().all(|w| *w == WeaponKind::Melee));
+    // 2 s cooldown: at most one swing every 2 s while enemies are around.
+    assert!(
+        (5..=31).contains(&swings.len()),
+        "{} swings in a minute",
+        swings.len()
+    );
 }
