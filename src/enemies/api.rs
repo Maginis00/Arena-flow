@@ -20,15 +20,18 @@ pub enum EnemyKind {
     Charger,
     /// Hangs back and keeps calling in grunts while it lives.
     Summoner,
+    /// Tiny, fragile and fast; comes as a pack from one spot on the wall.
+    Swarm,
 }
 
 impl EnemyKind {
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 6] = [
         Self::Grunt,
         Self::Shooter,
         Self::Brute,
         Self::Charger,
         Self::Summoner,
+        Self::Swarm,
     ];
 }
 
@@ -40,6 +43,7 @@ impl fmt::Display for EnemyKind {
             Self::Brute => "brute",
             Self::Charger => "charger",
             Self::Summoner => "summoner",
+            Self::Swarm => "swarm",
         })
     }
 }
@@ -91,7 +95,7 @@ impl FromStr for EnemyMix {
             .map(Self::With)
             .ok_or_else(|| {
                 format!(
-                    "unknown enemy mix {s:?}; expected grunt, shooter, brute, charger, summoner or all"
+                    "unknown enemy mix {s:?}; expected grunt, shooter, brute, charger, summoner, swarm or all"
                 )
             })
     }
@@ -115,6 +119,7 @@ pub struct EnemyBolt {
 pub struct EnemySpawned {
     pub enemy: Entity,
     pub kind: EnemyKind,
-    /// Called in by a summoner rather than taken from the wave's own count.
-    pub summoned: bool,
+    /// Not taken from the wave's own count: called in by a summoner, or the
+    /// rest of a swarm after its first member.
+    pub extra: bool,
 }

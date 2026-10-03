@@ -11,7 +11,7 @@ use crate::arena::api::ArenaBounds;
 use crate::combat::api::{HealGranted, Health, Hitbox, PlayerDied, Team};
 use crate::pickups::api::{Effects, EffectsChanged};
 use crate::waves::api::{WaveCleared, WaveStarted};
-use api::{FireRequested, Player, PlayerSpawned};
+use api::{FireRequested, Player, PlayerSpawned, SwingRequested};
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
@@ -28,6 +28,7 @@ impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<PlayerSpawned>()
             .add_message::<FireRequested>()
+            .add_message::<SwingRequested>()
             .init_resource::<PlayerInput>()
             .init_resource::<MovementEffects>()
             .add_systems(Startup, spawn_player)
@@ -58,6 +59,7 @@ struct PlayerInput {
     /// Cursor position in world space, if the cursor is over the window.
     aim_world: Option<Vec2>,
     fire_held: bool,
+    swing_held: bool,
 }
 
 /// Latest pickup effects; the player only uses `move_speed`.
@@ -105,6 +107,7 @@ fn sample_input(
     )
     .normalize_or_zero();
     input.fire_held = mouse.pressed(MouseButton::Left);
+    input.swing_held = mouse.pressed(MouseButton::Right);
     input.aim_world = match (window, camera) {
         (Some(window), Some(camera)) => {
             let (camera, camera_transform) = *camera;
@@ -135,8 +138,9 @@ fn request_fire(
     input: Res<PlayerInput>,
     player: Query<(Entity, &Transform, &Health), With<Player>>,
     mut fire: MessageWriter<FireRequested>,
+    mut swing: MessageWriter<SwingRequested>,
 ) {
-    if !input.fire_held {
+    if !input.fire_held && !input.swing_held {
         return;
     }
     let Some(aim) = input.aim_world else {
@@ -148,8 +152,18 @@ fn request_fire(
         }
         let origin = transform.translation.truncate();
         let direction = (aim - origin).normalize_or_zero();
-        if direction != Vec2::ZERO {
+        if direction == Vec2::ZERO {
+            continue;
+        }
+        if input.fire_held {
             fire.write(FireRequested {
+                shooter,
+                origin,
+                direction,
+            });
+        }
+        if input.swing_held {
+            swing.write(SwingRequested {
                 shooter,
                 origin,
                 direction,

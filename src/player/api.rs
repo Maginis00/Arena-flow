@@ -20,3 +20,14 @@ pub struct FireRequested {
     /// Unit vector toward the cursor.
     pub direction: Vec2,
 }
+
+/// The player is holding the sword input (right mouse button) this tick.
+/// Only does something while the sword sits on the right mouse button;
+/// weapons decide whether a swing happens (its own cooldown).
+#[derive(Message, Debug, Clone, Copy)]
+pub struct SwingRequested {
+    pub shooter: Entity,
+    pub origin: Vec2,
+    /// Unit vector toward the cursor.
+    pub direction: Vec2,
+}

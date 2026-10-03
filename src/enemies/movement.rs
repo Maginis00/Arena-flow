@@ -22,6 +22,17 @@ const CHARGE_DASH_SECS: f32 = 0.6;
 const CHARGE_DASH_SCALE: f32 = 6.0;
 /// PLACEHOLDER: seconds a charger stands still after a dash (the opening).
 const CHARGE_RECOVER_SECS: f32 = 0.9;
+/// PLACEHOLDER: the fastest a dash may go at difficulty 1, in world units per
+/// second (the player runs 280).
+const DASH_CAP_AT_MIN: f32 = 500.0;
+/// PLACEHOLDER: how much that limit rises per difficulty level.
+const DASH_CAP_PER_LEVEL: f32 = 40.0;
+
+/// The fastest a dash may go at difficulty `level`. The dash scales with the
+/// enemy speed lever; this keeps it readable at the top.
+pub(super) fn dash_cap(level: f32) -> f32 {
+    DASH_CAP_AT_MIN + DASH_CAP_PER_LEVEL * (level - 1.0).max(0.0)
+}
 
 /// Straight at the player.
 pub(super) fn chase(to_player: Vec2) -> Vec2 {
@@ -143,6 +154,13 @@ mod tests {
             assert!(held.x > 0.0 && held.x < held.y.abs(), "{held:?}");
             assert!(held.y < 0.0, "{held:?}");
         }
+    }
+
+    #[test]
+    fn dash_cap_rises_with_difficulty() {
+        assert_eq!(dash_cap(1.0), DASH_CAP_AT_MIN);
+        assert!(dash_cap(10.0) > dash_cap(5.0));
+        assert_eq!(dash_cap(10.0), DASH_CAP_AT_MIN + 9.0 * DASH_CAP_PER_LEVEL);
     }
 
     #[test]

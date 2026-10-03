@@ -13,7 +13,7 @@ use crate::enemies::api::EnemyMix;
 use crate::flow_director::api::{DecisionReason, Difficulty, DifficultyAdjusted};
 use crate::telemetry::api::{OverlayEnabled, SessionFileEnabled};
 use crate::waves::api::{WaveIndex, WaveStarted};
-use crate::weapons::api::WeaponKind;
+use crate::weapons::api::{SwordBinding, WeaponKind};
 use bevy::prelude::*;
 use bevy::window::{Monitor, PrimaryMonitor, PrimaryWindow, WindowPosition};
 
@@ -28,6 +28,8 @@ pub struct WatchConfig {
     pub quadrant: Option<Quadrant>,
     /// Which enemy kinds the waves hold.
     pub enemies: EnemyMix,
+    /// Where the sword lives (prototype).
+    pub sword: SwordBinding,
 }
 
 /// Open the game window with a bot at the controls; returns when it closes.
@@ -55,6 +57,7 @@ pub fn watch(config: WatchConfig) -> AppExit {
             seed: config.seed,
         })
         .insert_resource(config.enemies)
+        .insert_resource(config.sword)
         .insert_resource(SessionFileEnabled(false))
         // A quarter screen has room for the bot's label only.
         .insert_resource(OverlayEnabled(config.quadrant.is_none()))

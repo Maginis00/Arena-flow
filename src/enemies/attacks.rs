@@ -72,7 +72,7 @@ pub(super) fn arm(enemy: &mut EntityCommands, kind: EnemyKind, spec: &WaveSpec) 
                 calls: 0,
             });
         }
-        EnemyKind::Grunt | EnemyKind::Brute | EnemyKind::Charger => {}
+        EnemyKind::Grunt | EnemyKind::Brute | EnemyKind::Charger | EnemyKind::Swarm => {}
     }
 }
 
@@ -172,7 +172,7 @@ pub(super) fn summon(
         spawned.write(EnemySpawned {
             enemy,
             kind: EnemyKind::Grunt,
-            summoned: true,
+            extra: true,
         });
     }
 }

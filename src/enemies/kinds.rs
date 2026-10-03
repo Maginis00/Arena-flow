@@ -46,6 +46,12 @@ pub(super) const fn stats(kind: EnemyKind) -> KindStats {
             speed_scale: 0.5,
             contact_scale: 1.0,
         },
+        EnemyKind::Swarm => KindStats {
+            max_hp: 1,
+            half_size: 7.0,
+            speed_scale: 1.15,
+            contact_scale: 0.5,
+        },
     }
 }
 
@@ -81,12 +87,13 @@ const fn alone(kind: EnemyKind) -> Slot {
         EnemyKind::Brute => (4, 6),
         EnemyKind::Charger => (2, 3),
         EnemyKind::Summoner => (2, 8),
+        EnemyKind::Swarm => (3, 5),
     };
     Slot { kind, first, every }
 }
 
 /// PLACEHOLDER: the `all` mix. Earlier entries win a shared slot.
-const ALL_MIX: [Slot; 4] = [
+const ALL_MIX: [Slot; 5] = [
     Slot {
         kind: EnemyKind::Summoner,
         first: 3,
@@ -106,6 +113,11 @@ const ALL_MIX: [Slot; 4] = [
         kind: EnemyKind::Charger,
         first: 4,
         every: 5,
+    },
+    Slot {
+        kind: EnemyKind::Swarm,
+        first: 5,
+        every: 6,
     },
 ];
 
