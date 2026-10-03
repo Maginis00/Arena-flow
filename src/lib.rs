@@ -15,6 +15,8 @@ pub mod combat;
 pub mod debug_render;
 pub mod enemies;
 pub mod flow_director;
+#[cfg(feature = "fx")]
+pub mod fx;
 pub mod pickups;
 pub mod player;
 pub mod playtest;
