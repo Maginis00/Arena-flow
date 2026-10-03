@@ -18,6 +18,7 @@ mod perception;
 mod report;
 mod session;
 mod steering;
+mod strategy;
 mod summary;
 mod tier;
 mod tiling;
@@ -29,7 +30,8 @@ pub use agent_order::Order;
 pub use agent_view::{Feel, journal, render};
 pub use bot::PlaytestBotPlugin;
 pub use report::{Named, flow_table, pickup_table, table, weapon_table};
-pub use session::{SessionConfig, play};
+pub use session::{SessionConfig, play, play_many};
+pub use strategy::{Outcome, standing_table, standings, verdict_table, verdicts};
 pub use summary::Summary;
 pub use tier::{
     HandSkill, PickupPolicy, SkillTier, SpendPolicy, TierParams, WeaponPolicy, hand_skill,

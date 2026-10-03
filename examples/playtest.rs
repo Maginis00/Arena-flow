@@ -59,7 +59,7 @@ use flow_arena::flow_director::api::Difficulty;
 use flow_arena::pickups::api::PickupRules;
 use flow_arena::playtest::{
     Named, PickupPolicy, Quadrant, SessionConfig, SkillTier, SpendPolicy, Summary, WatchConfig,
-    flow_table, pickup_table, play, table, watch, weapon_table,
+    flow_table, pickup_table, play_many, table, watch, weapon_table,
 };
 use flow_arena::telemetry::api::{
     SESSION_DIR, SessionRecord, WEAPONS, read_session_file, save_session,
@@ -67,8 +67,6 @@ use flow_arena::telemetry::api::{
 use flow_arena::weapons::api::{SwordBinding, WeaponKind};
 use std::path::PathBuf;
 use std::process::{Command, ExitCode};
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::thread;
 
 const USAGE: &str = "usage: playtest [--minutes N] [--seeds N] [--tier NAME]... \
                      [--weapon projectile|hitscan|melee]... [--matrix] [--enemies MIX]... [--human] [--human-only]\n       \
@@ -274,7 +272,7 @@ fn main() -> ExitCode {
             }
         }
     }
-    let logs = play_all(&configs);
+    let logs = play_many(&configs);
 
     let mut named: Vec<Named> = humans
         .iter()
@@ -296,10 +294,8 @@ fn main() -> ExitCode {
         };
         let policy = c
             .pickup_policy
-            .map_or_else(String::new, |p| format!(" take:{}", policy_name(p)));
-        let spend = c
-            .spend
-            .map_or_else(String::new, |s| format!(" spend:{}", spend_name(s)));
+            .map_or_else(String::new, |p| format!(" take:{p}"));
+        let spend = c.spend.map_or_else(String::new, |s| format!(" spend:{s}"));
         (
             format!(
                 "{} #{}{lock}{mix}{pin}{rules}{policy}{spend}",
@@ -330,39 +326,6 @@ fn main() -> ExitCode {
         println!("- {name}: {}", Summary::of(log).trajectory);
     }
     ExitCode::SUCCESS
-}
-
-/// Sessions are independent and deterministic, so they run side by side, one
-/// worker per core: a thread per session makes the cores fight over Bevy's
-/// shared task pool once a sweep has a hundred sessions.
-fn play_all(configs: &[SessionConfig]) -> Vec<SessionRecord> {
-    let workers = thread::available_parallelism().map_or(4, |n| n.get());
-    let next = AtomicUsize::new(0);
-    let mut logs = vec![SessionRecord::default(); configs.len()];
-    let finished: Vec<(usize, SessionRecord)> = thread::scope(|scope| {
-        let handles: Vec<_> = (0..workers)
-            .map(|_| {
-                scope.spawn(|| {
-                    let mut done = Vec::new();
-                    loop {
-                        let i = next.fetch_add(1, Ordering::Relaxed);
-                        let Some(&config) = configs.get(i) else {
-                            return done;
-                        };
-                        done.push((i, play(config)));
-                    }
-                })
-            })
-            .collect();
-        handles
-            .into_iter()
-            .flat_map(|h| h.join().unwrap_or_default())
-            .collect()
-    });
-    for (i, log) in finished {
-        logs[i] = log;
-    }
-    logs
 }
 
 /// Starts one `--watch` process of this binary per tier, each in its own
@@ -430,8 +393,14 @@ fn save_all(
             EnemyMix::With(kind) => kind.to_string(),
             EnemyMix::All => "all".to_owned(),
         };
-        let policy = c.pickup_policy.map_or("own", policy_name);
-        let spend = c.spend.map_or("own", spend_name);
+        // Rule parameters are written with ':', which Windows file names reject.
+        let own = || "own".to_owned();
+        let policy = c
+            .pickup_policy
+            .map_or_else(own, |p| p.to_string().replace(':', "_"));
+        let spend = c
+            .spend
+            .map_or_else(own, |s| s.to_string().replace(':', "_"));
         let name = format!(
             "{}-{weapon}-{mix}-{pin}-{}-{policy}-{spend}-{}.jsonl",
             c.tier, c.pickup_rules, c.seed
@@ -447,22 +416,6 @@ const fn weapon_name(weapon: WeaponKind) -> &'static str {
         WeaponKind::Projectile => "projectile",
         WeaponKind::Hitscan => "hitscan",
         WeaponKind::Melee => "melee",
-    }
-}
-
-const fn policy_name(policy: PickupPolicy) -> &'static str {
-    match policy {
-        PickupPolicy::Ignore => "ignore",
-        PickupPolicy::Greedy => "greedy",
-        PickupPolicy::Weighed => "weighed",
-    }
-}
-
-const fn spend_name(spend: SpendPolicy) -> &'static str {
-    match spend {
-        SpendPolicy::Hoard => "hoard",
-        SpendPolicy::Panic => "panic",
-        SpendPolicy::Eager => "eager",
     }
 }
 
