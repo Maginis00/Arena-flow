@@ -40,9 +40,9 @@
 //! or all; repeat it to compare mixes. To play a mix yourself, set
 //! `ARENA_ENEMIES=all` before `cargo run`.
 //!
-//! `--sword right` puts the sword on the right mouse button next to the gun
-//! (prototype; `key3`, the default, keeps it as weapon 3). It applies to every
-//! session of the run. To play it yourself, set `ARENA_SWORD=right`.
+//! The sword sits on the right mouse button next to the gun. `--sword key3`
+//! brings back the old layout (the sword as weapon 3) for every session of
+//! the run; to play it yourself, set `ARENA_SWORD=key3`.
 //!
 //! `--watch-all` opens one window per tier (or per `--tier` given, at most
 //! four), each a separate process of this same binary filling one quarter of
@@ -69,7 +69,7 @@ use std::process::{Command, ExitCode};
 const USAGE: &str = "usage: playtest [--minutes N] [--seeds N] [--tier NAME]... \
                      [--weapon projectile|hitscan|melee]... [--matrix] [--enemies MIX]... [--human] [--human-only]\n       \
                      [--pin LEVEL]... [--sweep] [--jsonl DIR]\n       \
-                     [--pickups RULES]... [--pickup-policy NAME]... [--spend NAME]... [--sword key3|right]\n       \
+                     [--pickups RULES]... [--pickup-policy NAME]... [--spend NAME]... [--sword right|key3]\n       \
                      playtest --watch [--tier NAME] [--seeds N] [--weapon NAME] [--enemies MIX] [--sword NAME] [--quadrant NAME]\n       \
                      playtest --watch-all [--tier NAME]... [--seeds N] [--weapon NAME] [--enemies MIX] [--sword NAME]";
 

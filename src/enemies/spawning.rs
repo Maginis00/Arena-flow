@@ -1,8 +1,8 @@
 //! Turning a wave spec into enemies: the spawn queue, which kind each slot
 //! gets, where it appears, and everything a new enemy carries.
 
-use super::movement::{self, Charge};
-use super::{ChargeTell, Enemy, EnemyKind, EnemyMix, EnemySpawned};
+use super::movement::{self, Charge, Flock};
+use super::{ChargeTell, DiveTell, Enemy, EnemyKind, EnemyMix, EnemySpawned};
 use super::{Chaser, ContactCooldown, Gait, attacks, kinds, placement};
 use crate::arena::ArenaBounds;
 use crate::combat::{Health, Hitbox, Team};
@@ -49,7 +49,11 @@ pub(super) fn spawn_enemy<'a>(
 ) -> EntityCommands<'a> {
     let stats = kinds::stats(kind);
     let gait = match kind {
-        EnemyKind::Grunt | EnemyKind::Brute | EnemyKind::Swarm => Gait::Chase,
+        EnemyKind::Grunt | EnemyKind::Brute => Gait::Chase,
+        EnemyKind::Swarm => Gait::Flock {
+            flock: Flock::default(),
+            orbit,
+        },
         EnemyKind::Shooter => Gait::HoldRange {
             range: SHOOTER_RANGE,
             orbit,
@@ -75,8 +79,14 @@ pub(super) fn spawn_enemy<'a>(
         ContactCooldown::default(),
         Transform::from_translation(at.extend(0.5)),
     ));
-    if kind == EnemyKind::Charger {
-        enemy.insert(ChargeTell::default());
+    match kind {
+        EnemyKind::Charger => {
+            enemy.insert(ChargeTell::default());
+        }
+        EnemyKind::Swarm => {
+            enemy.insert(DiveTell::default());
+        }
+        EnemyKind::Grunt | EnemyKind::Shooter | EnemyKind::Brute | EnemyKind::Summoner => {}
     }
     attacks::arm(&mut enemy, kind, spec);
     enemy

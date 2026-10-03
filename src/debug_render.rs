@@ -4,7 +4,7 @@
 
 use crate::arena::ArenaBounds;
 use crate::combat::{Hitbox, Projectile};
-use crate::enemies::{ChargeTell, EnemyBolt, EnemyKind};
+use crate::enemies::{ChargeTell, DiveTell, EnemyBolt, EnemyKind};
 use crate::pickups::{PickupKind, Shard, ShardsSpent};
 use crate::player::Player;
 use crate::weapons::{Delivery, ShotFired};
@@ -18,6 +18,7 @@ const BRUTE_COLOR: Color = Color::srgb(0.55, 0.05, 0.05);
 const CHARGER_COLOR: Color = Color::srgb(1.0, 0.3, 0.55);
 const SUMMONER_COLOR: Color = Color::srgb(0.6, 0.2, 0.9);
 const SWARM_COLOR: Color = Color::srgb(1.0, 0.75, 0.2);
+const SWARM_TELL_COLOR: Color = Color::srgb(1.0, 1.0, 0.85);
 /// A charger winding up flashes this colour: its tell.
 const CHARGER_TELL_COLOR: Color = Color::srgb(1.0, 0.95, 0.95);
 const BOLT_COLOR: Color = Color::srgb(1.0, 0.55, 0.2);
@@ -50,6 +51,7 @@ impl Plugin for DebugRenderPlugin {
                     attach_pickup_boxes,
                     attach_shard_boxes,
                     show_charge_tells,
+                    show_dive_tells,
                     draw_flashes,
                     draw_blasts,
                 ),
@@ -114,6 +116,17 @@ fn show_charge_tells(mut chargers: Query<(&ChargeTell, &mut Sprite), Changed<Cha
             CHARGER_TELL_COLOR
         } else {
             CHARGER_COLOR
+        };
+    }
+}
+
+/// A swarm turns pale while it holds still before diving.
+fn show_dive_tells(mut swarms: Query<(&DiveTell, &mut Sprite), Changed<DiveTell>>) {
+    for (tell, mut sprite) in &mut swarms {
+        sprite.color = if tell.winding_up {
+            SWARM_TELL_COLOR
+        } else {
+            SWARM_COLOR
         };
     }
 }

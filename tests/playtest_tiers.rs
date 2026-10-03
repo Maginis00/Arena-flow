@@ -17,7 +17,7 @@ fn settle_with(tier: SkillTier, enemies: EnemyMix, pickup_rules: PickupRules) ->
         pickup_rules,
         pickup_policy: None,
         spend: None,
-        sword: SwordBinding::Key3,
+        sword: SwordBinding::default(),
     });
     Summary::of(&log)
 }

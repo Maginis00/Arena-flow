@@ -28,6 +28,23 @@ const DASH_CAP_AT_MIN: f32 = 500.0;
 /// PLACEHOLDER: how much that limit rises per difficulty level.
 const DASH_CAP_PER_LEVEL: f32 = 40.0;
 
+/// PLACEHOLDER: a swarm circles the player at this distance.
+const SWARM_RING: f32 = 200.0;
+/// PLACEHOLDER: how far off the ring a swarm still blends circling with
+/// closing in (or backing out); farther out it heads straight in.
+const SWARM_RING_SLACK: f32 = 60.0;
+/// PLACEHOLDER: seconds a new swarm circles before its first wind-up; counts
+/// from its spawn, so it includes the walk in.
+const SWARM_FIRST_CIRCLE_SECS: f32 = 4.0;
+/// PLACEHOLDER: seconds a swarm circles between dives.
+const SWARM_CIRCLE_SECS: f32 = 3.0;
+/// PLACEHOLDER: seconds a swarm holds still before it dives (the tell).
+const SWARM_WINDUP_SECS: f32 = 0.7;
+/// PLACEHOLDER: seconds a dive lasts.
+const SWARM_DIVE_SECS: f32 = 1.2;
+/// PLACEHOLDER: dive speed as a multiple of the swarm's own speed.
+const SWARM_DIVE_SCALE: f32 = 1.8;
+
 /// The fastest a dash may go at difficulty `level`. The dash scales with the
 /// enemy speed lever; this keeps it readable at the top.
 pub(super) fn dash_cap(level: f32) -> f32 {
@@ -141,6 +158,86 @@ impl Charge {
     }
 }
 
+/// Where a swarm is in its circle, tell and dive. Every member of a pack
+/// spawns in the same tick with the same timer, so the pack moves as one.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(super) enum Flock {
+    /// Circling the player at the ring; `orbit` (+1 or -1) is the way round.
+    Circle { left_secs: f32 },
+    /// Holding still before the dive: what a player can read.
+    WindUp { left_secs: f32 },
+    /// Rushing at the player, homing.
+    Dive { left_secs: f32 },
+}
+
+impl Default for Flock {
+    fn default() -> Self {
+        Self::Circle {
+            left_secs: SWARM_FIRST_CIRCLE_SECS,
+        }
+    }
+}
+
+impl Flock {
+    /// True while the pack holds still before diving.
+    pub(super) fn winding_up(self) -> bool {
+        matches!(self, Self::WindUp { .. })
+    }
+
+    /// Advance by `dt` and return the next phase and this tick's movement
+    /// (a direction times a share of the swarm's speed).
+    pub(super) fn step(self, to_player: Vec2, orbit: f32, dt: f32) -> (Self, Vec2) {
+        match self {
+            Self::Circle { left_secs } => {
+                let left_secs = left_secs - dt;
+                if left_secs > 0.0 {
+                    (Self::Circle { left_secs }, circle(to_player, orbit))
+                } else {
+                    let windup = Self::WindUp {
+                        left_secs: SWARM_WINDUP_SECS,
+                    };
+                    (windup, Vec2::ZERO)
+                }
+            }
+            Self::WindUp { left_secs } => {
+                let left_secs = left_secs - dt;
+                if left_secs > 0.0 {
+                    (Self::WindUp { left_secs }, Vec2::ZERO)
+                } else {
+                    let dive = Self::Dive {
+                        left_secs: SWARM_DIVE_SECS,
+                    };
+                    (dive, chase(to_player) * SWARM_DIVE_SCALE)
+                }
+            }
+            Self::Dive { left_secs } => {
+                let left_secs = left_secs - dt;
+                if left_secs > 0.0 {
+                    let dive = Self::Dive { left_secs };
+                    (dive, chase(to_player) * SWARM_DIVE_SCALE)
+                } else {
+                    let circle = Self::Circle {
+                        left_secs: SWARM_CIRCLE_SECS,
+                    };
+                    (circle, Vec2::ZERO)
+                }
+            }
+        }
+    }
+}
+
+/// Head straight in from far away; near the ring, circle it and drift onto
+/// it (out again after a dive).
+fn circle(to_player: Vec2, orbit: f32) -> Vec2 {
+    let distance = to_player.length();
+    let toward = to_player.normalize_or_zero();
+    if distance > SWARM_RING + SWARM_RING_SLACK {
+        return toward;
+    }
+    let pull = ((distance - SWARM_RING) / SWARM_RING_SLACK).clamp(-1.0, 1.0);
+    (toward * pull + toward.perp() * orbit).normalize_or_zero()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -154,6 +251,43 @@ mod tests {
             assert!(held.x > 0.0 && held.x < held.y.abs(), "{held:?}");
             assert!(held.y < 0.0, "{held:?}");
         }
+    }
+
+    #[test]
+    fn swarm_closes_in_then_circles_then_backs_out_after_a_dive() {
+        assert_eq!(circle(Vec2::new(600.0, 0.0), 1.0), Vec2::X);
+        let on_ring = circle(Vec2::new(SWARM_RING, 0.0), 1.0);
+        assert!(on_ring.x.abs() < 1e-6 && on_ring.y > 0.0, "{on_ring:?}");
+        let too_close = circle(Vec2::new(SWARM_RING / 4.0, 0.0), -1.0);
+        assert!(too_close.x < 0.0 && too_close.y < 0.0, "{too_close:?}");
+    }
+
+    #[test]
+    fn swarm_circles_tells_dives_and_circles_again() {
+        let dt = 1.0 / 60.0;
+        let to_player = Vec2::new(SWARM_RING, 0.0);
+        let mut flock = Flock::default();
+        let mut phases = Vec::new();
+        for _ in
+            0..((SWARM_FIRST_CIRCLE_SECS + SWARM_WINDUP_SECS + SWARM_DIVE_SECS + 1.0) / dt) as usize
+        {
+            let (next, step) = flock.step(to_player, 1.0, dt);
+            if next.winding_up() {
+                assert_eq!(step, Vec2::ZERO);
+            }
+            if let Flock::Dive { .. } = next {
+                assert_eq!(step, Vec2::X * SWARM_DIVE_SCALE);
+            }
+            let phase = std::mem::discriminant(&next);
+            if phases.last() != Some(&phase) {
+                phases.push(phase);
+            }
+            flock = next;
+        }
+        let circle = std::mem::discriminant(&Flock::default());
+        let windup = std::mem::discriminant(&Flock::WindUp { left_secs: 0.0 });
+        let dive = std::mem::discriminant(&Flock::Dive { left_secs: 0.0 });
+        assert_eq!(phases, [circle, windup, dive, circle]);
     }
 
     #[test]

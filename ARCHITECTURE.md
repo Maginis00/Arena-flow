@@ -150,13 +150,13 @@ Notes:
 A message written by a later set is read by an earlier set on the next tick.
 Bevy only drops messages after `FixedUpdate` has run, so none are missed.
 
-## Sword binding (weapons, prototype)
+## Sword binding (weapons)
 
-`SwordBinding` says where the sword lives. `Key3` (the default) is the game as
-it was: one of three weapons. `RightClick` puts it on the right mouse button
-next to the gun, with its own cooldown; `3` then selects nothing.
-`ARENA_SWORD=right` sets it for the game window and `--sword right` for the
-playtest example.
+`SwordBinding` says where the sword lives. `RightClick` (the default) puts it
+on the right mouse button next to the gun, with its own cooldown; `1` and `2`
+pick the gun and `3` selects nothing. `Key3` is the old layout, the sword as
+one of three weapons, kept for comparison: `ARENA_SWORD=key3` sets it for the
+game window and `--sword key3` for the playtest example.
 
 ## Enemy kinds (enemies)
 
@@ -180,6 +180,9 @@ the director's levers, so the director still scales them all.
   and a fixed number over their life, so every wave stays finite.
 - A swarm slot spawns a whole pack of tiny one-hit enemies in a ring at one
   spot on the wall. Only the first member takes the slot; the rest are `extra`.
+  The pack circles the player, holds still (its `DiveTell`, pale in
+  debug_render), then dives at the player together and circles again. All
+  members spawn in one tick with one timer, so the pack stays in step.
 - Waves count `extra` enemies towards the kills needed, but only the wave's
   own count towards "still spawning".
 
