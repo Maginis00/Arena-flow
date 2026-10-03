@@ -180,6 +180,9 @@ the director's levers, so the director still scales them all.
   and a fixed number over their life, so every wave stays finite.
 - A swarm slot spawns a whole pack of tiny one-hit enemies in a ring at one
   spot on the wall. Only the first member takes the slot; the rest are `extra`.
+  The pack circles the player, holds still (its `DiveTell`, pale in
+  debug_render), then dives at the player together and circles again. All
+  members spawn in one tick with one timer, so the pack stays in step.
 - Waves count `extra` enemies towards the kills needed, but only the wave's
   own count towards "still spawning".
 
