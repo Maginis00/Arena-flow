@@ -34,8 +34,12 @@ Ubuntu: `libudev-dev libwayland-dev libxkbcommon-dev`, plus X11 dev headers).
 
 - `W` `A` `S` `D`: move
 - Mouse: aim
-- Hold left mouse button: fire
-- `1` `2` `3`: projectile, hitscan, melee arc
+- Hold left mouse button: fire the gun
+- Hold right mouse button: swing the sword (melee arc), next to the gun
+- `1` `2`: projectile, hitscan
+
+`ARENA_SWORD=key3` brings back the old layout, where the sword is weapon `3`
+and only the selected weapon fires.
 
 ## Weapons (all numbers placeholder)
 
@@ -43,7 +47,7 @@ Ubuntu: `libudev-dev libwayland-dev libxkbcommon-dev`, plus X11 dev headers).
 |---|---|---|---|---|
 | 1 | Projectile | 0.18 s | 1 | travels at 720/s |
 | 2 | Hitscan | 0.35 s | 2 | first enemy on a 520 ray |
-| 3 | Melee arc | 0.45 s | 3 | every enemy in a 120° arc, radius 75 |
+| Right mouse | Melee arc | 2 s (0.45 s as weapon 3) | 3 | every enemy in a 120° arc, radius 75 |
 
 Enemies have 3 hp.
 
@@ -120,8 +124,8 @@ Then `cargo run --example playtest -- --human` puts your sessions
 ("you: session-...") in the same tables as the bots, or `--human-only` shows
 just yours.
 
-Bots move with `W` `A` `S` `D`, switch weapons with `1` `2` `3` and fire the same
-intent the mouse does. Tiers differ only in measurable limits: reaction delay,
+Bots move with `W` `A` `S` `D`, switch guns with `1` `2`, fire the same intent
+the mouse does and swing the sword whenever an enemy is in reach. Tiers differ only in measurable limits: reaction delay,
 decision rate, aim error, dodge radius, strafing, wall awareness, trigger
 discipline, pickup judgement and weapon choice. All tier numbers are
 PLACEHOLDER, in `src/playtest/tier.rs`.

@@ -23,18 +23,19 @@ impl fmt::Display for WeaponKind {
     }
 }
 
-/// Where the sword lives. A prototype: `Key3` is the game as it was.
+/// Where the sword lives. `RightClick` is the game; `Key3` is the old
+/// layout, kept for comparison until it is removed.
 ///
 /// Set it by inserting the resource, or for the game window with the
-/// `ARENA_SWORD` environment variable (`key3` or `right`).
+/// `ARENA_SWORD` environment variable (`right` or `key3`).
 #[derive(Resource, Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum SwordBinding {
-    /// One of three weapons, selected with `3`.
-    #[default]
-    Key3,
     /// Always at hand on the right mouse button with its own cooldown, next
     /// to the gun; `1` and `2` pick the gun and `3` does nothing.
+    #[default]
     RightClick,
+    /// The old layout: one of three weapons, selected with `3`.
+    Key3,
 }
 
 impl SwordBinding {

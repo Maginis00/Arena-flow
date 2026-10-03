@@ -40,7 +40,7 @@ pub struct SessionConfig {
     pub pickup_policy: Option<PickupPolicy>,
     /// Spend shards this way instead of the tier's own policy.
     pub spend: Option<SpendPolicy>,
-    /// Where the sword lives (prototype); `Key3` is the game as it ships.
+    /// Where the sword lives; `RightClick` is the game as it ships.
     pub sword: SwordBinding,
 }
 

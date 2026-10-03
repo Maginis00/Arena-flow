@@ -1,6 +1,7 @@
-//! The three placeholder weapons: projectile, hitscan and melee arc. Only the
-//! selected one fires, except that with [`SwordBinding::RightClick`] the melee
-//! arc sits on its own button next to the gun. Weapons decide *that* a shot happens (cooldown, lock,
+//! The three placeholder weapons: projectile, hitscan and melee arc. The
+//! selected gun fires on the left mouse button and the melee arc on the right
+//! one ([`SwordBinding::RightClick`]); with [`SwordBinding::Key3`] only the
+//! selected weapon fires. Weapons decide *that* a shot happens (cooldown, lock,
 //! damage after pickup effects); combat decides *what it hits*.
 
 mod kinds;
