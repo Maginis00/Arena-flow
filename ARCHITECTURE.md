@@ -16,7 +16,7 @@ hold.
 ```
 src/
   lib.rs            FlowArenaPlugins
-  main.rs           window + plugins only
+  main.rs           window + plugins only (+ FxPlugin with feature `fx`)
   app_setup.rs      app_setup/api.rs        SimSet, fixed timestep, 2D camera
   arena.rs          arena/api.rs            ArenaBounds, out-of-bounds despawn
   camera.rs         camera/api.rs           light follow (exposes nothing)
@@ -41,6 +41,9 @@ src/
                     flow_director/curve.rs  engagement on the flow curve (pure + tests)
   telemetry.rs      telemetry/api.rs        snapshot + debug overlay
   debug_render.rs   debug_render/api.rs     boxes, border, shot flashes
+  fx.rs             fx/api.rs               feature `fx`: the plugin and mute key
+                    fx/sounds.rs            one sample per fact (assets/sfx/)
+                    fx/particles.rs         death bursts, hit sparks, hurt flash
 ```
 
 Items shared between a domain's root and its submodules are `pub(super)`;
@@ -68,6 +71,7 @@ waves ──────► flow_director (Difficulty, DifficultyAdjusted, WaveL
 flow_director ► waves (WaveReport)
 telemetry ──► waves, flow_director, combat, player, weapons, pickups (messages only)
 debug_render ► player, enemies (EnemyKind, EnemyBolt), combat, pickups (markers + Hitbox), weapons (ShotFired), arena
+fx ─────────► combat, enemies (EnemyKind, ChargeTell), weapons (ShotFired), pickups, waves (messages and markers only; window builds with feature `fx`)
 ```
 
 ## Messages
@@ -116,7 +120,8 @@ Notes:
 - `Startup`: camera, arena border, player spawn, overlay text (debug builds),
   initial `DifficultyAdjusted` and `WeaponSwitched`.
 - `Update` (variable): input sampling (player movement/aim/fire, weapons 1/2/3),
-  camera follow, debug_render boxes and shot flashes, telemetry.
+  camera follow, debug_render boxes and shot flashes, telemetry, and with
+  feature `fx` the sounds and particles (main.rs only, never bots).
 - `FixedUpdate` at 60 Hz: all simulation, in chained `SimSet`s:
 
 | Order | SimSet | Systems |
@@ -220,7 +225,8 @@ The report opens with a flow table: each wave's risk on the flow curve
 `playtest::watch` is the windowed counterpart of `play`: `DefaultPlugins`, all
 of `FlowArenaPlugins` (debug_render included), the same `PlaytestBotPlugin` at
 real-time speed, and a small bottom-left label (tier, weapon, next difficulty,
-last director reason) registered by its own `WatchLabelPlugin`. It sets `SessionFileEnabled(false)`, so watching a
+last director reason) registered by its own `WatchLabelPlugin`. It never adds
+`FxPlugin`, so watched bots are silent. It sets `SessionFileEnabled(false)`, so watching a
 bot never writes a session file that would later read as your own.
 With `WatchConfig::quadrant` set, the window starts hidden and frameless and
 `place_in_quadrant` moves it into that quarter of the primary monitor's work

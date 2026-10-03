@@ -49,7 +49,11 @@ says what must stay true.
   for input sampling, camera, debug rendering and telemetry.
 - No `unwrap`/`expect` in gameplay systems; handle the missing case
   (`let ... else`, `try_despawn`, `Option<Single<..>>`). Tests may use `expect`.
-- `main.rs` only builds the window and adds `FlowArenaPlugins`.
+- `main.rs` only builds the window and adds `FlowArenaPlugins`, plus `FxPlugin`
+  with the `fx` feature.
+- Sound and particles live in `fx` (feature `fx`, off by default, `cargo play`).
+  It only reads facts and never writes back, and bots never load it, so the
+  simulation and the bot report stay the same with or without it.
 - Keep the harness deterministic: no RNG in the simulation.
 
 ## Code structure
