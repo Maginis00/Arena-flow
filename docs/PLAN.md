@@ -1,14 +1,28 @@
 # PLAN Arena-flow
 
-> **Entwurf Ist-Stand, V1-Plan folgt mit Planer.** Angelegt 2026-11-10 vom Projekt-Bot aus dem Repo-Stand main = #22.
-> Enthält nur, was im Repo belegt ist. Ziele, Nicht-Ziele und Slices für V1 sind **nicht entschieden** (OP-001).
+> **Entwurf Ist-Stand, V1-Plan folgt mit Planer.** Angelegt 2026-11-10 vom Projekt-Bot aus dem Repo-Stand main = #22, Nachtrag Entscheidungen 2026-11-10.
+> Enthält nur, was im Repo oder im Chat mit Jannus belegt ist. Richtung für V1 entschieden (OP-001), Slices für V1 sind **nicht entschieden**.
 > Miro-Link: noch keiner.
 
 ## Ziel (laut README, Stand heute)
 - 2D-Top-down-Wave-Arena als **Testaufbau für einen Flow-Channel-Difficulty-Director**: nach jeder Welle schiebt der Director die Schwierigkeit so, dass die nächste Welle knapp über der jüngsten Spielerleistung liegt (README.md:3–5).
 - „This is a test harness, not a game.“ (README.md:7)
 - Leitbild aus CLAUDE.md:18–27: „Simple on the surface, deep in mechanics and optimization“, Referenz Devil Daggers; der Director soll das Spiel für jede Skill-Stufe fordernd halten; Pickups haben immer einen Preis.
-- Spannung zwischen „Testaufbau“ (README) und Spiel-Leitbild (CLAUDE.md) ist die Kernfrage für V1 → OP-001.
+- Entscheidung Jannus 2026-11-10 (Box, OP-001): V1 ist erst der fertige Testaufbau für den Flow-Director, danach wird ein Spiel daraus.
+
+## Kernidee: Flow-Modell (Quelle: Chat Jannus 2026-11-10)
+Ersetzt inhaltlich die fehlende `design/risk-flow-curve.png` (OP-012).
+- Klassischer Flow-Graph: x-Achse Skill, y-Achse Challenge, der Flow-Kanal verläuft diagonal nach oben rechts.
+- Man ist im Flow, wenn die Challenge knapp über dem Skill liegt.
+- Skill hat 3 Bereiche: **mikro** (Zielen und Bewegen), **meso** (Entscheidungen innerhalb einer Welle), **makro** (Strategie über viele Wellen).
+- Der Director arbeitet wie ein komplexes System, passt sich automatisch an den Spielertyp an und hält ihn möglichst lange im Kanal (schwerer, aber nicht zu schwer).
+
+### Ist-Stand im Code (geprüft 2026-11-10, main = #23)
+- **Director misst bisher nur mikro**, und zwar indirekt: `wave_risk` = Anteil der hp, den eine Welle kostet (1 bei Tod), geglättet und in ein Band gesteuert (src/flow_director/decide.rs:76–82, :103–115). Der Code sagt selbst: liest nur mechanischen Druck, Entscheidungen und Gegner-Lesen nicht (src/flow_director/curve.rs:5–8). Die Code-Kurve ist Risiko → Engagement, kein Skill-/Challenge-Graph.
+- **meso:** wird nur gemessen, nicht gesteuert. `waves::danger` zählt Beinahe-Treffer, Bedrohungs- und Ruhezeit, Gedränge (src/waves/danger.rs, ARCHITECTURE.md:222–226); Bot-Stufen haben Entscheidungs-Parameter wie Tells lesen, Prioritätsziel, Pickup- und Waffenwahl (src/playtest/tier.rs:148–176).
+- **makro:** nur offline in den Bot-Werkzeugen: `strategy_search` prüft, ob eine Pickup-/Spend-Strategie überall gewinnt („macro difficulty as consequence“, src/playtest/strategy.rs:1–10). Der Director nutzt das nicht.
+- **Spielertyp-Anpassung:** gibt es nicht; der Director führt einen Schwierigkeitswert 1–10 und eine geglättete Risikozahl (OP-019).
+- Offene Fragen dazu: OP-008, OP-009, OP-019.
 
 ## Erkennbare Nicht-Ziele (README.md:171–177, „Intentionally not built“)
 - Game-Over-Screen, Run-Restart, Menüs außer dem Debug-Overlay
@@ -16,7 +30,7 @@
 - Assets, Sprites, Animation, Fonts über Bevys Standard (Sound gibt es inzwischen hinter `fx`, siehe OP-013)
 - Upgrades, Shops, Bosse, prozedurale Räume, Netzwerk, Spielstände
 - Balance: jede Zahl ist Platzhalter
-Ob diese Nicht-Ziele für V1 gelten, ist offen (OP-001, OP-017).
+Nach OP-001 (V1 = fertiger Testaufbau, Spiel danach) gehören Game-Over, HUD und Assets eher nach V1; endgültig legt das der V1-Plan fest (OP-016, OP-017).
 
 ## Architektur (kurz, Details in ARCHITECTURE.md)
 - Ein Crate `flow_arena`, Bevy `=0.19.1` (2D + UI), Rust 1.95, Edition 2024 (Cargo.toml, CLAUDE.md „Architecture rules“).
@@ -35,6 +49,8 @@ Ob diese Nicht-Ziele für V1 gelten, ist offen (OP-001, OP-017).
 | 2026-10-03 | Sound/Partikel behalten, aber getrennt: Feature `fx`, standardmäßig aus; Bots/Headless laden es nie | Jannus | playtest-notes/2026-10-03-sound-und-partikel.md:12–14, :31–34; CLAUDE.md „Architecture rules“ |
 | 2026-10-03 | Schwert auf Rechtsklick wird Standard (`ARENA_SWORD=key3` = alte Belegung) | Jannus (Playtest-Urteil „gefällt“), Default umgesetzt und gemergt in PR #22 | playtest-notes/2026-10-03-sound-und-partikel.md:15, PR #22 |
 | 2026-11-10 | Erst Ist-Stand in STAND.md/OP.md festhalten, dann mit dem Planer-Bot einen Plan bis V1 | Jannus | Chat 2026-11-10 (OP-001) |
+| 2026-11-10 | V1 ist erst der fertige Testaufbau für den Flow-Director, danach wird ein Spiel daraus | Jannus | Box 2026-11-10 (OP-001) |
+| 2026-11-10 | Standard-Gegnermix zu Beginn Grunt + Charger + Swarm, weitere Arten in späteren Wellen; ab welcher Welle, legt der V1-Plan fest | Jannus | Chat 2026-11-10 (OP-002, Rest OP-018) |
 Alle Balance-Zahlen sind Platzhalter, keine davon ist entschieden (OP-005, OP-006).
 
 ## Slice-Kandidaten (Vorschlag, nicht entschieden)
@@ -58,13 +74,13 @@ Pfade: docs/, design/, ggf. Verweis-Zeilen
 Fertig wenn: jeder Verweis im Repo zeigt auf eine vorhandene Datei.
 Nicht-Ziele: Inhalte umschreiben. · Test: `rg` auf die Pfade · Aufwand: ca. 5 min, S · OPs: OP-012
 
-**S-04 · Standard-Gegnermix festlegen** · Ziel: `cargo run` startet mit dem Mix, den Jannus spannend findet, statt nur Grunts · Abhängigkeiten: OP-001, OP-002
-Was: 1. Default von `EnemyMix` laut Entscheidung OP-002 setzen. 2. Bot-Report vorher/nachher anhängen. 3. README anpassen.
-Pfade: src/enemies/kinds.rs:52–70, README.md
+**S-04 · Standard-Gegnermix Grunt + Charger + Swarm** · Ziel: `cargo run` startet mit dem Mix, den Jannus entschieden hat (OP-002), statt nur Grunts · Abhängigkeiten: OP-002 (entschieden); wellenabhängiges Dazukommen weiterer Arten erst nach OP-018
+Was: 1. `EnemyMix` kann heute nur eine Zusatzart (`With`) oder alle (`All`); einen Mix Grunt + Charger + Swarm ergänzen und als Default setzen. 2. Bot-Report vorher/nachher anhängen. 3. README anpassen.
+Pfade: src/enemies/kinds.rs:52–70, src/enemies/kinds.rs:180–230, README.md
 Fertig wenn: `cargo run` ohne Env nutzt den neuen Mix; `ARENA_ENEMIES=grunt` liefert das alte Verhalten; Tests grün.
-Nicht-Ziele: Werte der Arten tunen (OP-005). · Test: `cargo test` + `cargo run --example playtest` · Aufwand: ca. 5–10 min, S · OPs: OP-002
+Nicht-Ziele: Werte der Arten tunen (OP-005), Wellen-Reihenfolge (OP-018). · Test: `cargo test` + `cargo run --example playtest` · Aufwand: ca. 10–15 min, S · OPs: OP-002, OP-018
 
-**S-05 · Pickup-Regelwerk eingrenzen** · Ziel: ein klares Pickup-System statt fünf Prototypen · Abhängigkeiten: OP-001, OP-003 (und OP-010)
+**S-05 · Pickup-Regelwerk eingrenzen** · Ziel: ein klares Pickup-System statt fünf Prototypen · Abhängigkeiten: OP-003 (wartet auf OP-012, Tendenz Jannus: shards), OP-010
 Was: 1. Gewähltes Regelwerk als Default. 2. Verworfene Varianten samt Bot-Pfaden entfernen. 3. README/ARCHITECTURE anpassen.
 Pfade: src/pickups/ (rules.rs, shards.rs, placement.rs, table.rs), src/playtest/choices.rs, examples/strategy_search.rs, README.md, ARCHITECTURE.md
 Fertig wenn: nur die gewählten Regelwerke sind auswählbar; `strategy_search` und Tests laufen; Report für Default unverändert, falls Default gleich bleibt.
