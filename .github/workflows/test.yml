@@ -1,0 +1,42 @@
+name: test
+
+# Runs `cargo test` (default features, headless, no `fx`) on every pull
+# request and on every push to main.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: System packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libx11-dev libwayland-dev libxkbcommon-dev libudev-dev
+
+      - uses: actions/checkout@v4
+
+      - name: Rust 1.95
+        run: |
+          rustup toolchain install 1.95 --profile minimal
+          rustup default 1.95
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: cargo test
+        run: cargo test
