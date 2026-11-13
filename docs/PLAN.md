@@ -39,7 +39,7 @@ Nach OP-001 (V1 = fertiger Testaufbau, Spiel danach) gehören Game-Over, HUD und
 - `playtest` (kein Gameplay-Plugin): Headless-Bots in 4 Stufen (novice/casual/skilled/expert), Zuschau-Fenster, Strategie-Suche.
 - Beispiele: `examples/playtest.rs` (Report, `--watch`, `--watch-all`, `--matrix`, `--human`), `examples/strategy_search.rs` (PR #19), `examples/agent_play.rs` (schrittweises Spielen durch einen externen Agenten, PR #10).
 - Tests: Unit-Tests in den Dateien, Integration in `tests/headless_waves.rs`, `tests/playtest_tiers.rs`, `tests/session_file.rs`.
-- CI: nur `.github/workflows/build-cache.yml` (Build-Cache für Claude-Cloud-Sessions), keine Test-CI (OP-014).
+- CI: `.github/workflows/build-cache.yml` (Build-Cache für Claude-Cloud-Sessions) und seit #25 `.github/workflows/test.yml` (`cargo test` bei jedem PR und Push auf main). Test-CI teilweise erledigt: fmt und clippy fehlen noch (OP-014, OP-028).
 
 ## Entscheidungen (nur im Repo belegt)
 | Datum | Entscheidung | Entscheider | Quelle |
@@ -62,11 +62,12 @@ Pfade: README.md
 Fertig wenn: jede genannte Env-Variable und jedes Beispiel existiert im Code; keine Inhaltsentscheidung neu getroffen; `cargo test` unverändert grün.
 Nicht-Ziele: Code, Werte, neue Features. · Test: `cargo test` · Aufwand: ca. 5–10 min, S · OPs: OP-013
 
-**S-02 · Test-CI für PRs** · Ziel: fmt, clippy und Tests laufen automatisch auf jedem PR · Abhängigkeiten: OK von Jannus (OP-014)
-Was: 1. Workflow, der `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test` ausführt. 2. Den vorhandenen Build-Cache (Release-Assets `build-cache`) nutzen, damit Bevy nicht jedes Mal neu baut.
-Pfade: .github/workflows/ (neue Datei), ggf. Hinweis in README.md
-Fertig wenn: Workflow läuft auf einem Test-PR grün; ein absichtlicher clippy-Fehler macht ihn rot.
-Nicht-Ziele: Release-Builds, Deployment. · Test: CI-Lauf auf dem PR · Aufwand: ca. 10–15 min, S · OPs: OP-014
+**S-02 · CI vervollständigen (fmt, clippy, Build-Cache)** · Ziel: Die CI prüft alles, was CLAUDE.md vor dem Push verlangt · Abhängigkeiten: keine. Test-CI mit `cargo test` ist erledigt (#25).
+Annahme (Arena-flow-Leiter) 2026-11-10: Test-CI vorerst ohne fmt/clippy, die kommen später in S-02; Jannus kann widersprechen (OP-028).
+Was: 1. `cargo fmt --check` und `cargo clippy --all-targets -- -D warnings` in die CI aufnehmen. 2. Den vorhandenen Build-Cache (Release-Assets `build-cache`) nutzen bzw. prüfen, ob er `Swatinem/rust-cache` ersetzt oder ergänzt. 3. Sammelkritik #23–#25 mitnehmen: `cargo test --locked` (OP-029), Actions per SHA pinnen (OP-030), `rust-toolchain.toml` als einzige Quelle für Rust 1.95 (OP-031), `actions/checkout` v5 (OP-032).
+Pfade: .github/workflows/test.yml, .github/workflows/build-cache.yml, ggf. rust-toolchain.toml (neu), Cargo.toml:5, .claude/cloud-setup.sh:16–17, ggf. Hinweis in README.md
+Fertig wenn: Workflow läuft auf dem PR grün; ein absichtlicher fmt- oder clippy-Fehler macht ihn rot; Rust-Version steht nur noch an einer Stelle (falls OP-031 mitgenommen).
+Nicht-Ziele: Release-Builds, Deployment. · Test: CI-Lauf auf dem PR · Aufwand: ca. 10–20 min, S · OPs: OP-014, OP-028, OP-029, OP-030, OP-031, OP-032
 
 **S-03 · Design-Unterlagen ins Repo** · Ziel: Flow-Kurve, Gegner-, Pickup- und Flow-Bericht sowie Playtest-Anleitung für alle Bots lesbar machen · Abhängigkeiten: Jannus liefert die Dateien (OP-012)
 Was: 1. Dateien nach `docs/` (bzw. `design/` für die Kurve, wie im Code referenziert) übernehmen. 2. Verweise in README.md:88, src/flow_director/curve.rs:1 und den Playtest-Notizen prüfen.
