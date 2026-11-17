@@ -1,7 +1,7 @@
 # PLAN Arena-flow – bis V1
 
-> **Plan-Entwurf r3 (Planer, 2026-11-17, nach Kritik R1 und den Entscheidungen zu OP-025–OP-033), teilweise entschieden.** Basis: Ist-Stand des Leiters (2026-11-10, Nachträge 2026-11-17), Repo-Stand main = #27 (Doku #26, Playtest-Vorlage #27); Code unverändert seit #22. Die Entscheidungen Jannus 2026-11-17 (Box) zu OP-009, OP-018 und OP-021 sind eingearbeitet (§7).
-> Belegt ist, was eine Quelle hat (Pfad:Zeile, PR, Chat/Box Jannus). Alles mit **Vorschlag** oder **Annahme (Planer)** ist nicht entschieden; Jannus entscheidet, der Leiter stellt die Boxen und vergibt OP-IDs. Die Fragen aus Kritik R1 stehen in §4.6 mit ihren OP-IDs (OP-025–OP-033, im Plan r2 noch F1–F9).
+> **Plan-Entwurf r4 (Planer, 2026-11-17, nach Kritik R1/R2 und den Entscheidungen zu OP-025–OP-033), teilweise entschieden.** Basis: Ist-Stand des Leiters (2026-11-10, Nachträge 2026-11-17), Repo-Stand main = #27 (Doku #26, Playtest-Vorlage #27); Code unverändert seit #22. Die Entscheidungen Jannus 2026-11-17 (Box) zu OP-009, OP-018, OP-021 und OP-025–OP-028 sind eingearbeitet (§7).
+> Belegt ist, was eine Quelle hat (Pfad:Zeile, PR, Chat/Box Jannus). Alles mit **Vorschlag** oder **Annahme (Planer)** ist nicht entschieden; Jannus entscheidet, der Leiter stellt die Boxen und vergibt OP-IDs. Die Fragen aus Kritik R1 stehen in §4.6 mit ihren OP-IDs (OP-025–OP-033, im Plan r2 noch F1–F9), die aus Kritik R2 in §4.7 als R2-1 bis R2-7 (OP-Text-Entwürfe ohne ID).
 > Balance-Zahlen in diesem Plan sind nur **PLACEHOLDER-Vorschläge**. Pfad:Zeile geprüft am 2026-11-17 auf diesem Stand.
 > Miro-/Canvas-Link: noch keiner.
 
@@ -62,8 +62,8 @@ Bewertet wird auf der Flow-Kurve (flow score, in flow, bored, overwhelmed), **ni
 | K1 | **Rangfolge:** Der Director ordnet alle vier Bot-Stufen streng steigend ein (settled diff novice < casual < skilled < expert). | Report über 3 Seeds (S-07 Punkt 6, zeigt, ob die Ordnung über Seeds hält); Test in `tests/playtest_tiers.rs` (S-13 Punkt 1) | streng monoton, 1 Seed, 4 sim. Minuten wie heute; heute getestet ist nur expert > novice (tests/playtest_tiers.rs:38–53). Ist die Ordnung in S-07 nicht über alle Seeds stabil, entscheidet Jannus bei der Schwelle (mehr Seeds oder Toleranz) |
 | K2 | **Regelgüte – im Kanal je Stufe** (OP-025): jede Stufe verbringt einen Mindestanteil der Wellen im Flow und wenig gelangweilt oder überfordert. | Flow-Tabelle (S-07 Punkt 6 Baseline, S-13 Punkt 5); belegt Regelgüte, nicht Flow (OP-025); Stufen am Rand: OP-032 (später, Entscheidung mit den Schwellen) | in flow ≥ 50 %, bored ≤ 20 %, overwhelmed ≤ 20 % je Stufe |
 | K3 | **Kein Deckel-Anschlag:** Skilled/Expert stehen selten am Deckel (Difficulty 10), auch mit der stärksten Waffe. | Spalte „am Deckel“ (S-07 Punkt 2), `--matrix`; Test S-13 Punkt 1 mit der stärksten Waffe. **Stärkste Waffe** = die Waffe mit dem höchsten Deckel-Anteil je Stufe in der letzten Baseline (Vorschlag Planer; laut OP-007 bisher Hitscan) | ≤ 10 % der Wellen je Stufe × Waffe, gepoolt über Seeds |
-| K4 | **Drei Skill-Bereiche getrennt messbar:** der Report zeigt je Session mikro, meso und makro als eigene Zahlen (Definition aus OP-009); je Bereich ein Bot-Paar, das sich nur dort unterscheidet und messbar verschieden abschneidet. | mikro: bestehende Spalten (Trefferquote, Risiko) + Bot-Paar „nur Hände verschieden“ (S-09b Punkt 3b); meso: Spalte + Bot-Paar „nur Tells an/aus“ (S-09b Punkt 3a, M-C); makro (OP-027): Bot-Paar offline über `strategy_search --rules classic` (gleiche Stufe und Hände, verschiedene `pickup_policy`, gepinnte Schwierigkeit; S-10 Punkt 4, S-13 Punkt 2); Spalte A-A (S-10) nur informativ, ohne K4-Anspruch | Spalten vorhanden; mikro/meso: je Paar Unterschied in der eigenen Zahl, in der fremden höchstens PLACEHOLDER 5 Prozentpunkte; makro: mindestens ein Strategie-Paar unterscheidet sich über die Gleichstandsgrenze von `strategy_search` hinaus (2 Standardfehler, src/playtest/strategy.rs:16) |
-| K5 | **Spielertyp-Reaktion** (nur falls OP-019 nicht „nicht in V1“): zwei Bots mit gleichen Händen, aber verschiedenem meso-Verhalten, bekommen messbar verschiedene Wellen (Hebel oder Mix). | Integrationstest in S-11 Punkt 6 (Bot-Paar aus dem Override von S-09b), in S-13 nur mitgelaufen | Unterschied in mindestens einem Hebel über die zweite Hälfte |
+| K4 | **Drei Skill-Bereiche getrennt messbar:** der Report zeigt je Session mikro, meso und makro als eigene Zahlen (Definition aus OP-009); je Bereich ein Bot-Paar, das sich nur dort unterscheidet und messbar verschieden abschneidet. | mikro: bestehende Spalten (Trefferquote, Risiko) + Bot-Paar „nur Hände verschieden“ (S-09b Punkt 3b; Vorschlag Planer, über OP-009 hinaus, siehe R2-7); meso: Spalte + Bot-Paar „nur Tells an/aus“ (S-09b Punkt 3a, M-C); makro (OP-027): Bot-Paar offline über `strategy_search --rules classic` (gleiche Stufe und Hände, verschiedene `pickup_policy`, gepinnte Schwierigkeit; S-10 Punkt 4, S-13 Punkt 2); Spalte A-A (S-10) nur informativ, ohne K4-Anspruch. **Hinweis:** Der angenommene K4-Wortlaut („der Report zeigt … makro“) und OP-027 (makro offline, Spalte informativ) widersprechen sich; offen, siehe R2-5. Folge eines negativen makro-Befunds mit `classic`: R2-6 | Spalten vorhanden; mikro/meso: je Paar Unterschied in der eigenen Zahl, in der fremden höchstens PLACEHOLDER 5 Prozentpunkte; makro: mindestens ein Strategie-Paar unterscheidet sich über die Gleichstandsgrenze von `strategy_search` hinaus (2 Standardfehler, src/playtest/strategy.rs:16) |
+| K5 | **Spielertyp-Reaktion** (nur falls OP-019 nicht „nicht in V1“): zwei Bots mit gleichen Händen, aber verschiedenem meso-Verhalten, bekommen messbar verschiedene Wellen (Hebel oder Mix). | Integrationstest in S-11 Punkt 6 (Bot-Paar aus dem Override von S-09b), in S-13 nur mitgelaufen. **Hinweis:** So formuliert ist der Test nicht trennscharf: verschieden gute Bots landen auf verschiedener Schwierigkeit und damit auf verschiedenen Hebeln, auch ohne meso-Steuerung (`levers_for` hängt nur an der Schwierigkeit, decide.rs:140–156). Messdefinition offen, siehe R2-2 | Unterschied in mindestens einem Hebel über die zweite Hälfte |
 | K6 | **Mensch im selben Instrument:** Jannus' Sessions erscheinen mit `--human` in denselben Tabellen; mindestens zwei menschliche Playtests mit Vorlage (S-06, #27), einer davon ≥ 15 min. | H-1, H-2: Notiz nach playtest-notes/VORLAGE.md + `--human`; S-13 Punkt 5 trägt das Ergebnis ein | Feld „Flow (1-10): … Ende“ der Vorlage ≥ 6 in beiden (Vorschlag Planer: Endwert, weil er die ganze Session abdeckt) |
 | K7 | **Reproduzierbar:** zwei gleiche Report-Läufe liefern identische Tabellen. | Test ab S-07 (Punkt 4: `play` zweimal, `Summary` gleich); manuell: Report-Lauf wiederholt (S-07 Punkt 7) | identisch |
 | K8 | **Technik grün:** `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test` laufen in CI (OP-014). | CI (S-02 Rest) | grün |
@@ -185,7 +185,7 @@ Folge für K4 makro, **Entscheidung Jannus 2026-11-17 (OP-027):** Bot-Paar offli
 | D-C Danger als Bremse | „anheben“ nur, wenn die Welle auch ruhig war (Bedrohungszeit-Anteil unter PLACEHOLDER); neuer Entscheidungsgrund | asymmetrisch und vorsichtig, Grund bleibt lesbar, ändert nichts an „zu riskant“/„Tod“ | neue `DecisionReason`-Variante (G3, Text in Session-Datei), ein Zustand mehr; hält absichtlich Wellen, die auf der Flow-Kurve „bored“ sind, verschlechtert also K2 (B1; nach OP-025 kein Erfolgsmaß für S-11) | nur Text im Debug-Overlay |
 | D-D Zweites Band auf der Danger-Achse | eigenes Band für den Bedrohungszeit-Anteil; anheben nur, wenn beide Signale unter ihrem Band, senken, wenn eins darüber (Hysterese, nicht additiv) | symmetrisch, sieht auch „gedrängt, aber ohne Schaden“-Überforderung | zwei Bänder zu tunen, mehr Kernlogik als D-C; senkt auch bei hp-sicheren Wellen; dieselbe K2-Wirkung wie D-C | nur Text im Debug-Overlay |
 
-**Empfehlung:** Erst mit S-07 messen, ob es „bored, aber knapp“-Wellen überhaupt nennenswert gibt (Definition und Schwelle: OP-029, Annahme Planer). Wenn ja: D-C (S-11), weil kleiner als D-D. Wenn nein: D-A, OP-008 schließen. Woran S-11 seinen Erfolg misst, legt OP-025 fest (S-11 Punkt 5).
+**Empfehlung:** Erst mit S-07 messen, ob es „bored, aber knapp“-Wellen überhaupt nennenswert gibt (Definition und Schwelle: OP-029, Annahme Planer; Anpassung vorgeschlagen in R2-3, damit S-07 dieselbe absolute Größe misst, mit der S-11 steuert). Wenn ja: D-C (S-11), weil kleiner als D-D. Wenn nein: D-A, OP-008 schließen. Woran S-11 seinen Erfolg misst, legt OP-025 fest (S-11 Punkt 5).
 
 ### 4.3 OP-007 · Hebel-Deckel
 | Option | Idee | Vorteile | Nachteile | Oberfläche |
@@ -193,7 +193,7 @@ Folge für K4 makro, **Entscheidung Jannus 2026-11-17 (OP-027):** Bot-Paar offli
 | H-A Deckel anheben | `Difficulty::MAX` über 10, Hebel linear weiter | klein im Code | nur „mehr vom Gleichen“ (Anzahl, Tempo, Schaden); `Difficulty` ist geteilt (G5), `--sweep` zählt fest 1..=10; Tempo-Grenzen (z. B. `dash_cap`, src/enemies/movement.rs:50) müssen mit | nichts Neues |
 | H-B Neuer Hebel Zusammensetzung | höhere Stufe = mehr Sonderarten im Mix | nutzt vorhandene Arten, Tiefe aus Gegner-Design | Kernlogik und `enemies` hängen enger zusammen (`WaveLevers` bekommt ein Feld, G3/G4); sinkt die Stufe, verschwinden Arten wieder; macht aus dem entschiedenen W-A ein W-C, öffnet also OP-018 wieder | mehr Arten früher |
 | H-C Deckel akzeptieren | Experten am Deckel = „Testaufbau zu leicht für diese Stufe“, als Ergebnis ausgewiesen | kein Risiko | K3 fällt weg oder wird aufgeweicht; K2 für Skilled/Expert ist dann vermutlich nicht erreichbar (Anmerkung in §2), Umgang: OP-032 | nichts Neues |
-| H-D Neuer Hebel Gleichzeitigkeit | Spawn-Intervall bzw. Zahl gleichzeitig aktiver Gegner wird ein Hebel; heute feste Konstante `SPAWN_INTERVAL_SECS` = 0,35 s (src/enemies/spawning.rs:13) | kein neuer Inhalt, wirkt mit jedem Mix, keine verschwindenden Arten, berührt OP-018 nicht; mehr Gedränge verlangt Prioritäten (meso) | Kernlogik + `WaveLevers`/`WaveSpec` (G3/G4) wie H-B; ändert `Danger` (Gedränge, Bedrohungszeit), vermischt sich also mit D-C/D-D | nichts Neues |
+| H-D Neuer Hebel Gleichzeitigkeit | Spawn-Intervall bzw. Zahl gleichzeitig aktiver Gegner wird ein Hebel; heute feste Konstante `SPAWN_INTERVAL_SECS` = 0,35 s (src/enemies/spawning.rs:14) | kein neuer Inhalt, wirkt mit jedem Mix, keine verschwindenden Arten, berührt OP-018 nicht; mehr Gedränge verlangt Prioritäten (meso) | Kernlogik + `WaveLevers`/`WaveSpec` (G3/G4) wie H-B; ändert `Danger` (Gedränge, Bedrohungszeit), vermischt sich also mit D-C/D-D | nichts Neues |
 
 **Empfehlung:** Erst S-07: die 57–70 % stammen aus PR #12, mit reinen Grunts und vor Charger-Cap und Swarm. Bleibt der Anteil mit Standard-Mix über der K3-Schwelle: H-D, weil er OP-018 nicht wieder öffnet und mit dem Wellenplan zusammenpasst; H-B nur, wenn Jannus Zusammensetzung ausdrücklich als Hebel will (dann zusammen mit OP-018 als W-C). Liegt der Anteil darunter: H-C. Ob H-A dem Leitbild widerspricht, bewertet Jannus; der Planer empfiehlt ihn nicht, weil er nur bestehende Hebel verlängert.
 
@@ -227,6 +227,19 @@ Im Plan r2 als F1–F9 entworfen; IDs und Typ vom Leiter (docs/OP.md auf dem Lei
 
 Zusätzlich: OP-023 ist um src/weapons.rs:121 („One shooter in v1“) ergänzt.
 
+### 4.7 Fragen aus Kritik R2 (OP-Text-Entwürfe, IDs vergibt der Leiter)
+Entscheidungen Jannus bleiben unverändert. R2-3 und R2-4 passen Annahmen des Planers an (OP-029, OP-030); der Plan nutzt ab r4 die empfohlene Fassung, bis Jannus widerspricht.
+
+| Nr. | Frage | Typ (Vorschlag) | Optionen | Empfehlung Planer | wirkt auf |
+|---|---|---|---|---|---|
+| R2-1 | **Mindeststichprobe für das S-11-Erfolgsmaß (OP-025):** Mit D-C wird seltener angehoben, die Zahl der Wellen „direkt nach anheben“ schrumpft. | Annahme | **a** mindestens 30 „anheben“-Ereignisse je Stufe, gepoolt über Seeds (PLACEHOLDER); darunter wird „zu wenig Daten“ statt einer Zahl ausgewiesen. **b** für den S-11-Vergleich mehr Seeds (z. B. 5) statt einer Mindestzahl. **c** nur über alle Stufen zusammen auswerten. | **a**; reicht es in S-07 nicht, für S-11 b zusätzlich | S-07 Punkt 2, S-11 Punkt 5 |
+| R2-2 | **K5-Messdefinition:** „Unterschied in mindestens einem Hebel“ ist schon ohne meso-Steuerung erfüllt, weil das Bot-Paar auf verschiedener Schwierigkeit landet. | später (vor dem Schnitt von S-11) | **a** Hebel-Verhältnis bei gleicher Schwierigkeit: für Wellen gleicher Stufe unterscheidet sich Anzahl : Tempo/Schaden zwischen dem Paar; Gegenprobe ohne meso-Steuerung zeigt keinen Unterschied. **b** Wortlaut bleibt, aber mit Gegenprobe: der Unterschied mit meso-Steuerung muss größer sein als ohne. **c** K5 wie angenommen (Test wäre auch ohne T-A0 grün). | **a** | K5, S-11 Punkt 6 |
+| R2-3 | **OP-029 anpassen (Annahme):** S-07 misst „knapp“ relativ (≥ Median der in-flow-Wellen), S-11 steuert mit einer absoluten Schwelle; der Median ist je Session ohne in-flow-Wellen undefiniert und über Seeds in `Summary::of` nicht berechenbar. | Annahme | **a** wie OP-029 heute (relativ). **b** maßgeblich ist der Anteil bored-Wellen mit Bedrohungszeit-Anteil ≥ t für feste Stufen t ∈ {0,1; 0,2; 0,3} (PLACEHOLDER); S-11 wählt seine `DirectorConfig`-Schwelle aus diesen Werten, misst also, was S-07 gemessen hat; der relative Anteil bleibt informativ (Median je Session, ohne in-flow-Wellen „–“). **c** beide maßgeblich. „Nennenswert“ ≥ 10 % aller Wellen bleibt. | **b** | S-07 Punkt 2/6, §4.2, S-11 Punkt 1 |
+| R2-4 | **OP-030 anpassen (Annahme):** „gesehen“ am Ende des Wind-ups verfehlt Tell-Leser: der Bot weicht schon während des Wind-ups aus der Spur (`sidestep`, src/playtest/steering.rs:33–50; Spurbreite `TELL_LANE` = 50, src/playtest/bot.rs:41; Aufruf :228–229), steht am Ende außerhalb und fällt aus „gesehen“ heraus. | Annahme | **a** „gesehen“ = Spieler beim ersten Tick mit `ChargeTell.aim = Some` (Richtung steht ab da fest, src/enemies/movement.rs:87–92) höchstens PLACEHOLDER Einheiten von der Dash-Linie und in Dash-Reichweite; „ausgewichen“ = gesehen und kein Kontakttreffer dieses Gegners in diesem Anlauf. **b** wie bisher am Ende des Wind-ups, mit Abstand deutlich über 50. **c** jeder Tell zählt. | **a** | S-09a Punkt 2, S-09b Punkt 3a |
+| R2-5 | **K4-Wortlaut vs. OP-027:** K4 sagt „der Report zeigt je Session mikro, meso und makro“, OP-027 legt makro offline fest (Spalte nur informativ). | später (S-13) | **a** K4-Wortlaut an OP-027 angleichen: „der Report zeigt mikro und meso je Session; makro wird offline über `strategy_search` nachgewiesen; je Bereich ein Bot-Paar“. **b** Wortlaut lassen, OP-027 als Auslegung von K4 vermerken. | **a** | K4, S-13 |
+| R2-6 | **Negativer makro-Befund:** Zeigt `strategy_search --rules classic` kein Strategie-Paar über der Gleichstandsgrenze, ist K4 makro nicht erfüllt. | später (nach S-10) | **a** K4 makro als dokumentiertes ❌ („mit `classic` keine echte makro-Entscheidung“), V1 trotzdem abnehmbar, Folge an OP-003/OP-024. **b** makro-Nachweis mit `shards` (Werkzeug-Default) statt `classic`. **c** V1 wartet auf OP-003. | **a** | K4, S-10 Punkt 4, S-13 |
+| R2-7 | **mikro-Bot-Paar „nur Hände“** (S-09b Punkt 3b) geht über OP-009 (M-C = Tells an/aus) hinaus. | Annahme | **a** behalten: deckt „je Bereich ein Bot-Paar“ für mikro ab und zeigt, dass die meso-Quote nicht mit den Händen mitläuft. **b** streichen, mikro nur über die bestehenden Spalten. | **a** | K4, S-09b Punkt 3b |
+
 ## 5. Wellenplan weitere Gegnerarten (OP-018) – **entschieden**
 **Entscheidung Jannus 2026-11-17 (Box):** W-A nach Wellenindex, Reihenfolge Shooter → Brute → Summoner, Startwellen 6/10/14 als PLACEHOLDER (nach S-07 messen). Umsetzung S-08.
 Entschieden (OP-002): Start mit Grunt + Charger + Swarm. Heute kann `kind_for_slot` die Welle nicht sehen (src/enemies/kinds.rs:223–231); `WaveSpec` mit `index` liegt beim Spawnen aber schon in der Queue (src/enemies/spawning.rs:95–102), der Umbau bleibt also lokal in `enemies`.
@@ -237,7 +250,7 @@ Entschieden (OP-002): Start mit Grunt + Charger + Swarm. Heute kann `kind_for_sl
 | W-B Nach Schwierigkeit | Art ab Stufe X, also ein Director-Hebel (= OP-007 H-B) | Zusammensetzung wächst mit dem Können, gibt Experten Luft unter dem Deckel | Kernlogik; Arten verschwinden, wenn die Stufe fällt (Flackern); Inhalt und Director-Tuning vermischt |
 | W-C Hybrid | Freischalten nach Wellenindex (bleibt), Anteil nach Schwierigkeit | Fortschritt und Skalierung | zwei Stellschrauben zu tunen, größte Slice |
 
-Ob die Startwellen in den Mess-Läufen überhaupt erreicht werden, ist nicht gemessen. Grobschätzung (Annahme, nicht gemessen): Welle ≈ 2,5 s Pause (src/waves/transitions.rs:8) + Spawn n × 0,35 s (n = 4 + 2(d−1), decide.rs:143–152, spawning.rs:13) + Kampfzeit, also grob 10–20 s je Welle, 12–24 Wellen in 4 min; Novice mit Toden weniger. S-07 Punkt 6 misst das (`furthest_wave`, summary.rs:22).
+Ob die Startwellen in den Mess-Läufen überhaupt erreicht werden, ist nicht gemessen. Grobschätzung (Annahme, nicht gemessen): Welle ≈ 2,5 s Pause (src/waves/transitions.rs:8) + Spawn n × 0,35 s (n = 4 + 2(d−1), decide.rs:143–152, spawning.rs:14) + Kampfzeit, also grob 10–20 s je Welle, 12–24 Wellen in 4 min; Novice mit Toden weniger. S-07 Punkt 6 misst das (`furthest_wave`, summary.rs:22).
 
 ## 6. Slices bis V1
 
@@ -268,7 +281,7 @@ flowchart TD
   H2 --> S13
 ```
 - Kante S-07 → S-09a (neu): beide ändern Test-Literale bzw. Tests in src/playtest/summary.rs; S-09a startet nach dem Merge von S-07.
-- Parallel möglich (keine gemeinsame Datei): S-01 ∥ S-07; S-08 ∥ S-09a (S-08 ändert `enemies`, examples/playtest.rs und `tests/playtest_tiers.rs`, S-09a `waves`, `telemetry` und Test-Literale in decide.rs/summary.rs; Annahme (Planer): keine gemeinsame Datei, vor Start mit `git diff --stat` beider Branches prüfen). **Nicht parallel:** S-07 ∥ S-09a (summary.rs), S-07 ∥ S-09b ∥ S-10 (alle `summary.rs`/`report.rs`), S-08 ∥ S-09b (beide examples/playtest.rs und tests/playtest_tiers.rs), S-11 ∥ S-12 (beide `decide.rs`).
+- Parallel möglich (keine gemeinsame Datei): S-01 ∥ S-07; S-08 ∥ S-09a (S-08 ändert `enemies`, examples/playtest.rs und `tests/playtest_tiers.rs`, S-09a `waves`, `telemetry` und Test-Literale in decide.rs/summary.rs; Annahme (Planer): keine gemeinsame Datei, vor Start mit `git diff --stat` beider Branches prüfen). **Nicht parallel:** S-07 ∥ S-09a (summary.rs), S-07 ∥ S-09b ∥ S-10 (alle `summary.rs`/`report.rs`), S-08 ∥ S-09b (beide examples/playtest.rs und tests/playtest_tiers.rs), S-11 ∥ S-12 (beide `decide.rs`), S-09a ∥ S-10 und S-10 ∥ S-11 (summary.rs), README.md: S-01, S-08, S-10 und S-13 nacheinander, S-01 erst nach S-04 (docs/STAND.md:16).
 - Aufwände sind wie in docs/OP.md Laufzeit des Umsetzers in Minuten (Kopfzeile OP.md), keine Tool-Calls. Am oberen Rand: S-07 (Report-Läufe), S-08, S-09a (≥ 6 Literal-Stellen). Die Laufzeit eines Report-Laufs ist nicht gemessen; S-07 misst sie einmal (Punkt 5) und trägt sie in die Baseline ein. CI braucht für `cargo test` ca. 16 min (docs/STAND.md:3).
 
 ### Laufend bzw. erledigt (nicht neu planen)
@@ -286,14 +299,14 @@ flowchart TD
 **S-07 · Baseline-Messung V1 + Reproduzierbarkeit** · Ziel: bevor neue Features kommen, mit dem Standard-Mix messen, wo die vier Stufen landen, wie oft sie am Deckel/Boden stehen, ob „bored, aber knapp“-Wellen vorkommen und wie weit sie kommen; Wiederholbarkeit als Test absichern, weil alle späteren Vorher/Nachher-Vergleiche sie voraussetzen (CLAUDE.md „Process“; Grundlage für K1–K3, K7, OP-007, OP-008, OP-032, OP-029) · Abhängigkeiten: S-04 gemergt
 Was:
 1. Falls S-04 es nicht getan hat: Default-Mix in `examples/playtest.rs:184–186` auf den S-04-Mix stellen (Name laut S-04-PR).
-2. `Summary` um Anteile ergänzen (Nenner jeweils: alle Wellen der Session): Wellen bei `Difficulty::MAX`, Wellen bei `Difficulty::MIN`, „bored“-Wellen mit `danger.close_calls > 0` (Alternative zu OP-029, zum Vergleich), „bored“-Wellen mit Bedrohungszeit-Anteil ≥ Median der in-flow-Wellen derselben Stufe (OP-029, Annahme Planer; Anteil = `threat_secs`/`duration_secs`, bei Dauer 0 gilt 0). Reine Logik, Unit-Tests in derselben Datei.
+2. `Summary` um Anteile ergänzen (Nenner jeweils: alle Wellen der Session): Wellen bei `Difficulty::MAX`, Wellen bei `Difficulty::MIN`, „bored“-Wellen mit `danger.close_calls > 0` (zum Vergleich), „bored“-Wellen mit Bedrohungszeit-Anteil ≥ t für t ∈ {0,1; 0,2; 0,3} (PLACEHOLDER; maßgeblich nach R2-3), „bored“-Wellen mit Bedrohungszeit-Anteil ≥ Median der in-flow-Wellen derselben Session (OP-029, informativ; ohne in-flow-Wellen „–“). Anteil = `threat_secs`/`duration_secs`, bei Dauer 0 gilt 0. Dazu das S-11-Erfolgsmaß aus OP-025: Anteil der Wellen direkt nach einem „anheben“ (Welle i+1, wenn `waves[i].decision == Raised`; `decision` ist die Entscheidung nach dieser Welle, src/telemetry/session_record.rs:112–113), die overwhelmed sind (Tode eingeschlossen, wie `Summary::overwhelmed`); Nenner = Zahl dieser Folgewellen, Anzahl mit ausweisen (Mindeststichprobe R2-1). Reine Logik, Unit-Tests in derselben Datei.
 3. Die neuen Anteile als Spalten in die Flow-Tabelle (`flow_table`).
 4. K7-Test in `tests/playtest_tiers.rs`: `play` zweimal mit gleicher `SessionConfig` (1 Seed, 4 min), `Summary` gleich. Der bestehende Replay-Test (src/playtest/agent.rs:401) deckt nur Agenten-Läufe ab.
-5. Report-Läufe nach der Messvorschrift (§2): `time cargo run --release --example playtest -- --matrix --seeds 3 --minutes 10` mit Standard-Mix und dasselbe mit `--enemies all`; dazu einmal `--seeds 3 --minutes 4` ohne `--matrix` (Bedingungen des K1-Tests). Wanduhr-Zeit je Lauf festhalten.
-6. Ergebnis mit 5–10 Zeilen Befund nach `playtest-notes/<datum>-bot-baseline.md` (Datum des Laufs): je Stufe × Waffe gepoolt über Seeds (OP-031, Spannweite je Seed) Deckel-/Boden-Anteil, in flow/bored/overwhelmed, beide „bored, aber knapp“-Anteile und ob der OP-029-Anteil die 10 %-Marke je Stufe erreicht; je Stufe K1-Ordnung über die Seeds; je Stufe Wellen und `furthest_wave` (erreicht der K1-Lauf mit 4 min die Startwellen 6/10/14 aus OP-018?).
+5. Report-Läufe nach der Messvorschrift (§2): `time cargo run --release --example playtest -- --matrix --seeds 3 --minutes 10` mit explizit gesetztem `--enemies <S-04-Mix>` (Name laut S-04-PR) und dasselbe mit `--enemies all`; dazu einmal `--seeds 3 --minutes 4` ohne `--matrix` (Bedingungen des K1-Tests). Wanduhr-Zeit je Lauf festhalten.
+6. Ergebnis mit 5–10 Zeilen Befund nach `playtest-notes/<datum>-bot-baseline.md` (Datum des Laufs): je Stufe × Waffe gepoolt über Seeds (OP-031, Spannweite je Seed) Deckel-/Boden-Anteil, in flow/bored/overwhelmed, alle „bored, aber knapp“-Anteile und welche davon die 10 %-Marke je Stufe erreichen; Erfolgsmaß „nach anheben“ mit Anzahl; Name des S-04-Mixes und genaue Befehlszeilen (Vergleichsbasis für S-09b, S-11); je Stufe K1-Ordnung über die Seeds; je Stufe Wellen und `furthest_wave` (erreicht der K1-Lauf mit 4 min die Startwellen 6/10/14 aus OP-018?).
 7. Den ersten Lauf aus Punkt 5 einmal wiederholen und vermerken, ob die Tabellen identisch sind (K7 manuell).
 Pfade: src/playtest/summary.rs:15–54 (Struktur), :56–130 (`Summary::of`), Tests ab :146; src/playtest/report.rs:46–70 (`flow_table` ab :48); examples/playtest.rs:184–186; tests/playtest_tiers.rs:1–63; playtest-notes/ (neue Datei)
-Fertig wenn: neue Spalten erscheinen im Report; Unit-Tests decken leere Session (0 Wellen → 0 %, kein Panic), Welle mit Dauer 0 und eine Session ganz am Deckel ab; K7-Test grün; Baseline-Datei enthält alle Läufe aus Punkt 5 mit Laufzeit und den Befund aus Punkt 6; `cargo test` grün.
+Fertig wenn: neue Spalten erscheinen im Report; Unit-Tests decken leere Session (0 Wellen → 0 %, kein Panic), Welle mit Dauer 0, Session ohne in-flow-Welle, Session ohne „anheben“ und eine Session ganz am Deckel ab; K7-Test grün; Baseline-Datei enthält alle Läufe aus Punkt 5 mit Laufzeit und den Befund aus Punkt 6; `cargo test` grün.
 Nicht-Ziele: Director, Werte, Gegner ändern; Schwellen für K1–K3 festlegen (macht Jannus); Report-Code für Pooling (Pooling rechnet die Notiz aus Wellenzahl × Anteil der Seed-Zeilen).
 Test: `cargo test --lib playtest::summary` und `cargo test --test playtest_tiers`
 Modell + Effort: sonnet medium · Aufwand: ca. 30–45 min (Report-Läufe eingerechnet, Annahme), M
@@ -320,15 +333,15 @@ OPs: OP-002, OP-018, OP-005
 **S-09a · meso-Zähler in der Welle** · Ziel: je Welle zählen, wie viele Tells (Charger-Dash, Swarm-Dive) der Spieler gesehen hat und wie vielen er ohne Treffer ausgewichen ist, als Grundlage der meso-Zahl (OP-009 M-B, entschieden 2026-11-17) · Abhängigkeiten: S-04 und S-07 gemergt; Definition „gesehen/ausgewichen“ laut OP-030 (Annahme Planer)
 Was:
 1. Pfade prüfen: `ChargeTell`/`DiveTell` (src/enemies.rs:26–40) und wo sie gesetzt werden (src/enemies.rs:139–162); ob `waves` sie wie in `danger.rs` direkt lesen kann. Ist ein neuer Fakt aus `enemies` nötig, stoppen und als Blocker melden (Architekturfrage für den Kritiker).
-2. Neue Zähler in den Wellen-Stats und ein neues Feld in `WaveReport` (eigene kleine Struktur neben `Danger`, Name wählt der Executor); „gesehen“ laut OP-030: ein Charger-Tell, wenn der Spieler beim Ende des Wind-ups höchstens PLACEHOLDER Einheiten von der Dash-Linie (`ChargeTell.aim`) entfernt und in Dash-Reichweite ist; ein Swarm-Dive immer (er zielt auf den Spieler). „ausgewichen“ = gesehen und ohne Kontakttreffer dieses Gegners in diesem Anlauf. Neue Abstände als PLACEHOLDER-Konstanten neben dem Code.
+2. Neue Zähler in den Wellen-Stats und ein neues Feld in `WaveReport` (eigene kleine Struktur neben `Danger`, Name wählt der Executor); „gesehen“ laut OP-030 in der Fassung R2-4 a (Annahme Planer): ein Charger-Tell, wenn der Spieler beim ersten Tick mit `ChargeTell.aim = Some` höchstens PLACEHOLDER Einheiten von der Dash-Linie entfernt und in Dash-Reichweite ist; ein Swarm-Dive immer (er zielt auf den Spieler). „ausgewichen“ = gesehen und ohne Kontakttreffer dieses Gegners in diesem Anlauf. Neue Abstände als PLACEHOLDER-Konstanten neben dem Code.
 3. Session-Datei: Feld mit `#[serde(default)]` wie `danger` (src/telemetry/session_line.rs:35–37), Round-Trip-Test, eine alte Zeile ohne Feld lädt.
 4. Alle `WaveReport`-Struktur-Literale ergänzen: Produktivcode src/waves/transitions.rs:70–93 (`report()`) und src/telemetry/session_line.rs:179; Tests src/telemetry/session_line.rs:282, src/flow_director/decide.rs:173–192, src/playtest/summary.rs:154.
 Pfade: src/waves.rs:69–120, :154–165 (Plugin-Registrierung); src/waves/machine.rs; src/waves/transitions.rs:70–93; src/waves/danger.rs (Muster) bzw. neue Datei unter src/waves/, falls danger.rs sonst über ~200 Zeilen Logik käme; src/telemetry/session_line.rs (:35–37, :179, :282); src/flow_director/decide.rs:173–192; src/playtest/summary.rs:154
-Fertig wenn: Unit-Tests: gefährdender Tell ohne Treffer zählt als ausgewichen, Tell mit Kontakttreffer nicht, nicht gefährdender Charger-Tell zählt nicht als gesehen, Welle ohne Charger/Swarm ergibt 0/0 (kein Teilen durch 0); alte Session-Datei lädt; Report-Ausgabe unverändert (noch keine Spalte); `cargo test` grün.
+Fertig wenn: Unit-Tests: gefährdender Tell ohne Treffer zählt als ausgewichen, Tell mit Kontakttreffer nicht, nicht gefährdender Charger-Tell zählt nicht als gesehen, Spieler, der während des Wind-ups aus der Spur tritt, zählt als gesehen und ausgewichen, Welle ohne Charger/Swarm ergibt 0/0 (kein Teilen durch 0); alte Session-Datei lädt; Report-Ausgabe unverändert (noch keine Spalte); `cargo test` grün.
 Nicht-Ziele: Report-Spalte (S-09b), Director-Steuerung (S-11), Summoner-Priorität.
 Test: `cargo test --lib waves`
 Modell + Effort: sonnet high · Aufwand: ca. 30–45 min, M · Risiko: G1, G8 (Risikoliste Nr. 1)
-OPs: OP-009, OP-030, OP-004 (Bots ignorieren den Swarm-Dive bisher)
+OPs: OP-009, OP-030, OP-004 (Bots ignorieren den Swarm-Dive bisher); R2-4
 
 ---
 
@@ -336,14 +349,14 @@ OPs: OP-009, OP-030, OP-004 (Bots ignorieren den Swarm-Dive bisher)
 Was:
 1. `Summary` + Flow-Tabelle: meso-Quote (ausgewichen / gesehen) und Ausweichquote aus `Danger` (M-A).
 2. `SessionConfig` bekommt zwei Overrides (Muster wie `pickup_policy`/`spend`, src/playtest/session.rs:39–42, angewendet ab :53): Tell-Lesen (überschreibt `reads_tells`, src/playtest/tier.rs:169) und Hände (überschreibt `reaction_secs`/`decision_secs`/`aim_error_deg` über `hand_skill(level)`, src/playtest/tier.rs:258–284). Alle `SessionConfig`-Literale ergänzen (G10).
-3. Integrationstests mit gepinnter Schwierigkeit und explizitem `--enemies`-Mix (S-04-Mix, nicht Default): **a** Skilled mit und ohne Tell-Lesen, sonst gleich: meso-Quote mit Tells höher, Trefferquote unterscheidet sich höchstens um PLACEHOLDER 5 Prozentpunkte. **b** Skilled-Entscheidungen mit Händen Stufe 2 und 3: Trefferquote mit besseren Händen höher, meso-Quote unterscheidet sich höchstens um PLACEHOLDER 5 Prozentpunkte. Grenze der Aussage siehe §4.1.
+3. Integrationstests mit gepinnter Schwierigkeit und explizitem `--enemies`-Mix (S-04-Mix, nicht Default): **a** Skilled mit und ohne Tell-Lesen, sonst gleich: meso-Quote mit Tells höher, Trefferquote unterscheidet sich höchstens um PLACEHOLDER 5 Prozentpunkte. **b** (Vorschlag Planer, R2-7) Skilled-Entscheidungen mit Händen Stufe 2 und 3: Trefferquote mit besseren Händen höher, meso-Quote unterscheidet sich höchstens um PLACEHOLDER 5 Prozentpunkte. Grenze der Aussage siehe §4.1. Prüfen, dass 3a nicht durch die Zähl-Definition invertiert (R2-4).
 4. Report-Lauf nach der Messvorschrift (§2) in den PR-Text.
 Pfade: src/playtest/summary.rs; src/playtest/report.rs:46–70; src/playtest/session.rs:25–60; src/playtest/tier.rs:148–175, :258–284; tests/playtest_tiers.rs:10; examples/playtest.rs:253; examples/strategy_search.rs:154
 Fertig wenn: Spalten im Report; Tests aus Punkt 3 grün; ohne Override sind alle bisherigen Zahlen gleich (Vergleich mit dem S-07-Lauf mit explizit gesetztem `--enemies <S-04-Mix>`, damit ein zwischenzeitlich gemergtes S-08 den Vergleich nicht verschiebt); beide Beispiele bauen.
 Nicht-Ziele: Director-Steuerung; neue Bot-Stufen.
 Test: `cargo test --test playtest_tiers`
 Modell + Effort: sonnet medium · Aufwand: ca. 30–45 min, M · Risiko: G10 (drei Literale)
-OPs: OP-009
+OPs: OP-009; R2-7
 
 ---
 
@@ -354,7 +367,7 @@ Was:
 3. README: ein Satz, dass makro über Pickups offline über `strategy_search` läuft.
 4. K4-makro-Nachweis laut OP-027: `cargo run --release --example strategy_search -- --rules classic --enemies <S-04-Mix>` (sonst Werkzeug-Defaults: alle Stufen, gepinnt auf 4/6/8/10, 3 Seeds, 4 min; examples/strategy_search.rs:48–49, :77–82). Befund: unterscheidet sich mindestens ein Strategie-Paar (gleiche Stufe und Hände, verschiedene `pickup_policy`) über die Gleichstandsgrenze hinaus (2 Standardfehler, src/playtest/strategy.rs:16)? Ergebnis in den PR und als Abschnitt in die Baseline-Datei aus S-07.
 Pfade: src/playtest/summary.rs; src/playtest/report.rs:46–70; README.md; examples/strategy_search.rs (nur ausführen)
-Fertig wenn: Spalte im Report; Tests grün inkl. leere Session, Session ohne Tod, Tod ohne Erholung und weniger als drei Wellen; Befund aus Punkt 4 im PR und in der Baseline-Datei. Fällt er negativ aus, wird er als Vorbefund ❌ für K4 makro gemeldet; Tuning ist nicht Teil von S-10.
+Fertig wenn: Spalte im Report; Tests grün inkl. leere Session, Session ohne Tod, Tod ohne Erholung und weniger als drei Wellen; Befund aus Punkt 4 im PR und in der Baseline-Datei. Fällt er negativ aus, wird er als Vorbefund ❌ für K4 makro gemeldet (weiter laut R2-6); Tuning ist nicht Teil von S-10.
 Nicht-Ziele: Pickup-/Shard-Makro (OP-003), Director-Steuerung, Änderungen an `strategy_search`.
 Test: `cargo test --lib playtest::summary`
 Modell + Effort: sonnet medium · Aufwand: ca. 20–30 min, S
@@ -362,42 +375,42 @@ OPs: OP-009, OP-026, OP-027, OP-003 (bleibt offen)
 
 ---
 
-**S-11 · Director: zweites Signal (Danger-Bremse, ggf. meso)** · **OPUS (Kernlogik)** · Ziel: der Director erkennt „bored, aber knapp“-Wellen und unterscheidet, je nach OP-019, Spieler mit gleichem mikro und verschiedenem meso · Abhängigkeiten: S-07, S-09b gemergt; **OP-008 und OP-019 entschieden (blockierend)**; Erfolgsmaß festgelegt (OP-025). Geschnitten für die Empfehlung D-C + T-A0; entscheidet Jannus anders, schneidet der Planer S-11 neu (bei D-A und T-C entfällt sie, bei T-A kommt S-12 mit H-B davor)
+**S-11 · Director: zweites Signal (Danger-Bremse, ggf. meso)** · **OPUS (Kernlogik)** · **Entwurf, nicht ready** (schneidbar erst nach OP-008, OP-019 und R2-2; die AKs unten gelten nur für die Empfehlung D-C + T-A0) · Ziel: der Director erkennt „bored, aber knapp“-Wellen und unterscheidet, je nach OP-019, Spieler mit gleichem mikro und verschiedenem meso · Abhängigkeiten: S-07, S-09b gemergt; **OP-008 und OP-019 entschieden (blockierend)**; Erfolgsmaß festgelegt (OP-025). Geschnitten für die Empfehlung D-C + T-A0; entscheidet Jannus anders, schneidet der Planer S-11 neu (bei D-A und T-C entfällt sie, bei T-A kommt S-12 mit H-B davor)
 Was:
 1. `decide()` liest zusätzlich zur Risikozahl den Bedrohungszeit-Anteil der Welle (`threat_secs`/`duration_secs`, bei Dauer 0 gilt 0 = ruhig); „anheben“ nur, wenn er unter einer PLACEHOLDER-Schwelle in `DirectorConfig` liegt, sonst neuer Grund „hält: knapp ohne Schaden“ (`DecisionReason`-Variante + Text).
 2. T-A0: `DirectorMemory` glättet die meso-Quote mit; wie sich die Schrittweite auf Anzahl vs. Tempo/Schaden verteilt, hängt davon ab (PLACEHOLDER-Verteilung neben `levers_for`).
 3. Unit-Tests in `decide.rs` für jede neue Verzweigung, inkl. erste Welle (kein Gedächtnis), Welle ohne Tells und Welle mit Dauer 0.
 4. Session-Datei: der neue Grund steht in `DECISIONS` (Größe 7 → 8), `decision_name` und `parse_decision` (src/telemetry/session_line.rs:228–248, :259); Round-Trip-Test; `--human` liest ihn.
-5. Report vorher/nachher für alle Stufen nach der Messvorschrift (§2) im PR; Erfolg laut OP-025: der Anteil der Tode und overwhelmed-Wellen in der Welle direkt nach einem „anheben“ sinkt gegenüber S-07 (gleiche Messvorschrift), K1 bleibt erfüllt; K3 gegen S-07 vergleichen. Der K2-Vergleich ist kein Erfolgsmaß. Im PR ausweisen: `Summary::in_band` (zählt nur `HeldInBand`, src/playtest/summary.rs:105) sinkt durch den neuen Halte-Grund, und der Anteil „bored“ auf der Flow-Kurve steigt absichtlich (kein Fehler, B1).
-6. K5-Integrationstest: Bot-Paar aus S-09b (gleiche Hände, Tell-Lesen an/aus) bekommt in der zweiten Hälfte in mindestens einem Hebel verschiedene Werte.
-Pfade: src/flow_director/decide.rs:6–54, :56–61, :97–156 (+ Tests ab :158); src/flow_director/difficulty.rs:61–126; src/flow_director.rs:77–96; src/telemetry/session_line.rs:228–248, :259; src/playtest/summary.rs:105; tests/playtest_tiers.rs; ARCHITECTURE.md:204–226; README.md „How difficulty moves“
+5. Report vorher/nachher für alle Stufen nach der Messvorschrift (§2) im PR; Erfolg laut OP-025: der Anteil der Tode und overwhelmed-Wellen in der Welle direkt nach einem „anheben“ (Spalte aus S-07 Punkt 2) sinkt gegenüber S-07 (gleiche Messvorschrift, gleicher Mix), mit Anzahl der Ereignisse und Mindeststichprobe laut R2-1; K1 bleibt erfüllt; die `DirectorConfig`-Schwelle aus Punkt 1 ist einer der in S-07 gemessenen Werte t (R2-3); K3 gegen S-07 vergleichen. Der K2-Vergleich ist kein Erfolgsmaß. Im PR ausweisen: `Summary::in_band` (zählt nur `HeldInBand`, src/playtest/summary.rs:105) sinkt durch den neuen Halte-Grund, und der Anteil „bored“ auf der Flow-Kurve steigt absichtlich (kein Fehler, B1).
+6. K5-Integrationstest nach der Messdefinition aus R2-2 (Empfehlung a: Bot-Paar aus S-09b, gleiche Hände, Tell-Lesen an/aus; für Wellen gleicher Schwierigkeit unterscheidet sich das Verhältnis Anzahl : Tempo/Schaden; Gegenprobe mit abgeschalteter meso-Steuerung zeigt keinen Unterschied).
+Pfade: src/flow_director/decide.rs:6–54, :56–61, :97–156 (+ Tests ab :158); src/flow_director/difficulty.rs:61–126; src/flow_director.rs:77–96; src/telemetry/session_line.rs:228–248, :259; src/playtest/summary.rs:105 und die Spalte „nach anheben“ aus S-07; tests/playtest_tiers.rs; ARCHITECTURE.md:204–226; README.md „How difficulty moves“
 Fertig wenn: alle neuen Zweige getestet; ohne Danger (alle Werte 0) und ohne meso entscheidet `decide()` wie vorher (Regressionstest); K1 im Report weiter erfüllt; der Spieler sieht außer dem neuen Grund im Debug-Overlay nichts Neues (Leitbild: Tiefe ohne Oberfläche); Erfolgsmaß aus Punkt 5 erreicht und im PR belegt; K5-Test grün; `cargo clippy --all-targets -- -D warnings` grün.
 Nicht-Ziele: neue Hebel (S-12), Band-Werte tunen, Report-Maßstab ändern (G7).
 Test: `cargo test --lib flow_director::decide` und `cargo test --test playtest_tiers`
 Modell + Effort: **opus high** · Aufwand: ca. 30–45 min, M · Risiko: Nr. 1 (G3, G7, G8), Nr. 3, Nr. 4 → Kritikrunde
-OPs: OP-008, OP-019, OP-006, OP-025, OP-029
+OPs: OP-008, OP-019, OP-006, OP-025, OP-029; R2-1, R2-2, R2-3
 
 ---
 
 **S-12 · Hebel-Deckel (OP-007)** · **OPUS (Kernlogik)** · Ziel: Skilled/Expert stoßen nicht mehr am Deckel an (K3) · Abhängigkeiten: S-07 gemergt, **OP-007 entschieden (blockierend)**, bei H-B auch OP-018 erneut (W-C)
 **Nicht ready:** Der Inhalt hängt ganz an der Option (H-A: `Difficulty` und Hebel-Kurve; H-B: neues Feld in `WaveLevers` + `enemies`; H-D: neues Feld in `WaveLevers`/`WaveSpec` + Spawn-Takt in `enemies`; H-C: entfällt). Der Planer schneidet die Slice nach der Entscheidung aus; bis dahin keine bedingten AKs. Modellwahl Opus ist vorläufig, weil die Slice noch nicht geschnitten ist.
-Vorläufig: Pfade src/flow_director/decide.rs:140–156, src/flow_director/difficulty.rs:10–53, :107–113, src/waves/transitions.rs:106–113, src/enemies/kinds.rs:223–231, src/enemies/spawning.rs:13 · Test: `cargo test --lib flow_director` · Modell + Effort: **opus high** · Aufwand: ca. 30–45 min, M–L · Risiko: Nr. 1 (G3–G5), Nr. 3, Nr. 4 · OPs: OP-007, OP-018
+Vorläufig: Pfade src/flow_director/decide.rs:140–156, src/flow_director/difficulty.rs:10–53, :107–113, src/waves/transitions.rs:106–113, src/enemies/kinds.rs:223–231, src/enemies/spawning.rs:14 · Test: `cargo test --lib flow_director` · Modell + Effort: **opus high** · Aufwand: ca. 30–45 min, M–L · Risiko: Nr. 1 (G3–G5), Nr. 3, Nr. 4 · OPs: OP-007, OP-018
 
 ---
 
-**S-13 · V1-Abnahme: Kriterien als Tests + Doku** · Ziel: die angenommenen Kriterien laufen automatisch oder sind dokumentiert geprüft, und die Doku beschreibt V1 · Abhängigkeiten: S-08, S-01, S-02 Rest, H-1, H-2; S-10, S-11, S-12 (jeweils gemergt oder als entfallen entschieden); **Schwellen K1–K3 von Jannus nach S-07 festgelegt (OP-021, Gegenprüfung nach S-08) und damit OP-032 (K2 am Rand) entschieden (blockierend)**
+**S-13 · V1-Abnahme: Kriterien als Tests + Doku** · **Entwurf, nicht ready** (welche Kriterien gelten, hängt an OP-007 für K3, OP-019 für K5, OP-032 für K2 am Rand und R2-5/R2-6 für K4; der Planer schneidet S-13 nach diesen Entscheidungen endgültig) · Ziel: die angenommenen Kriterien laufen automatisch oder sind dokumentiert geprüft, und die Doku beschreibt V1 · Abhängigkeiten: S-08, S-01, S-02 Rest, H-1, H-2; S-10, S-11, S-12 (jeweils gemergt oder als entfallen entschieden); **Schwellen K1–K3 von Jannus nach S-07 festgelegt (OP-021; Gegenprüfung nach S-08 ist Vorschlag Planer, §2) und damit OP-032 (K2 am Rand) entschieden (blockierend)**
 Was:
-1. `tests/playtest_tiers.rs`: Rangfolge aller vier Stufen (K1) statt nur expert > novice; Deckel-Anteil (K3) für Skilled/Expert mit der stärksten Waffe laut letzter Baseline (`weapon_lock`, Definition in §2).
+1. `tests/playtest_tiers.rs`: Rangfolge aller vier Stufen (K1) statt nur expert > novice; Deckel-Anteil (K3) für Skilled/Expert mit der stärksten Waffe laut letzter Baseline (`weapon_lock`, Definition in §2), nach der Messvorschrift OP-031 (3 Seeds, 10 min, gepoolt), damit Test und Schwelle dieselbe Größe messen; wegen der Laufzeit voraussichtlich `#[ignore]` (Punkt 3).
 2. K4: die Bot-Paar-Tests aus S-09b (mikro, meso) laufen weiter; makro laut OP-027: den `strategy_search --rules classic`-Lauf aus S-10 Punkt 4 mit dem Default-Mix zum Abnahmezeitpunkt wiederholen, Befund ins Abschluss-Dokument. K5 und K7 laufen aus S-11 bzw. S-07 mit.
 3. Laufzeit des Testpakets messen; liegt die CI deutlich über heute (ca. 16 min), die Kriterien-Tests mit `#[ignore]` markieren und einen eigenen CI-Schritt nur vorschlagen (Frage an Jannus wegen Actions-Minuten).
-4. README/ARCHITECTURE auf V1-Stand; K9-Suche aus Abschnitt 8 ohne Treffer (Ausnahme `risk-flow-curve.png` bis OP-012, OP-028); Kritiker-Durchsicht für die Begriffe ohne festen Wortlaut.
+4. Code-Begriff „v1“ bereinigen (OP-023): src/flow_director/decide.rs:140, src/flow_director/difficulty.rs:107, src/weapons.rs:121 (nur Kommentare); Kontrolle `rg -n '\bv1\b' src` ohne Treffer. README/ARCHITECTURE auf V1-Stand; K9-Suche aus Abschnitt 8 ohne Treffer (Ausnahme `risk-flow-curve.png` bis OP-012, OP-028); Kritiker-Durchsicht für die Begriffe ohne festen Wortlaut.
 5. Abschluss-Report nach der Messvorschrift (§2) als `playtest-notes/<datum>-bot-v1.md` mit ✅/❌ je Kriterium; K2 als „Regelgüte“ ausgewiesen, K6 (Notizen H-1/H-2) als Flow-Nachweis (OP-025); Stufen am Rand laut OP-032.
-Pfade: tests/playtest_tiers.rs:1–63; README.md; ARCHITECTURE.md; playtest-notes/ (neue Datei)
-Fertig wenn: jedes Kriterium K1–K9 hat einen Test oder eine dokumentierte manuelle Prüfung; `cargo test` grün; K9-Suche ohne Treffer außer der Ausnahme aus OP-028.
+Pfade: tests/playtest_tiers.rs:1–63; README.md; ARCHITECTURE.md; src/flow_director/decide.rs:140; src/flow_director/difficulty.rs:107; src/weapons.rs:121; playtest-notes/ (neue Datei)
+Fertig wenn: `rg -n '\bv1\b' src` ohne Treffer; jedes Kriterium K1–K9 hat einen Test oder eine dokumentierte manuelle Prüfung; `cargo test` grün; K9-Suche ohne Treffer außer der Ausnahme aus OP-028.
 Nicht-Ziele: Werte tunen, um ein Kriterium zu „schaffen“ (dann eigene Tuning-Slice, OP-005/OP-006).
 Test: `cargo test --test playtest_tiers`
 Modell + Effort: sonnet medium · Aufwand: ca. 30–45 min, M
-OPs: OP-001, OP-007, OP-014, OP-021, OP-023, OP-025, OP-027, OP-028, OP-031, OP-032
+OPs: OP-001, OP-007, OP-014, OP-019, OP-021, OP-023, OP-025, OP-027, OP-028, OP-031, OP-032; R2-5, R2-6
 
 ---
 
@@ -429,7 +442,7 @@ Alle Balance-Zahlen sind Platzhalter, keine davon ist entschieden (OP-005, OP-00
 |---|---|---|---|---|
 | „Enemies have 3 hp“ | hp je Art (src/enemies/kinds.rs:114–154) | README.md:52 | S-01 | ja |
 | „The default mix is grunts only“ / `Grunts` als Default | Standard-Mix Grunt + Charger + Swarm (OP-002), später Wellenplan | ARCHITECTURE.md:166, src/enemies/kinds.rs:58–60 | S-04 / S-08 | ja (Doku) |
-| „three v1 levers“, „in v1“ für die drei Hebel | „die drei Hebel“; **V1** meint nur den Meilenstein „fertiger Testaufbau“ (OP-001) | ARCHITECTURE.md:209; Code (OP-023, nicht K9): src/flow_director/decide.rs:140, src/flow_director/difficulty.rs:107, zusätzlich src/weapons.rs:121 („One shooter in v1“, seit 2026-11-17 in OP-023) | spätestens S-12, sonst S-13 | ja |
+| „three v1 levers“, „in v1“ für die drei Hebel | „die drei Hebel“; **V1** meint nur den Meilenstein „fertiger Testaufbau“ (OP-001) | ARCHITECTURE.md:209; Code (OP-023, nicht K9): src/flow_director/decide.rs:140, src/flow_director/difficulty.rs:107, zusätzlich src/weapons.rs:121 („One shooter in v1“, seit 2026-11-17 in OP-023) | S-13 Punkt 4 (OP-023); S-12 darf decide.rs:140 mitnehmen, wenn es die Stelle ohnehin ändert | ja |
 | „keine Test-CI“ | Test-CI seit #25, fmt/clippy fehlen | alter PLAN-Text (hier korrigiert); README/ARCHITECTURE nennen CI nicht | erledigt | nein (kein Treffer möglich) |
 | `design/risk-flow-curve.png` als vorhandene Quelle | Flow-Modell in Abschnitt 1; Datei fehlt (OP-012) | README.md:88, ARCHITECTURE.md:214, src/flow_director/curve.rs:1 | S-03 (offen); in K9 bekannte Ausnahme bis OP-012 (OP-028) | eigene Suche (Ausnahme) |
 | Sound unter „Intentionally not built“ | Sound hinter Feature `fx` | README.md:175 („Assets, sprites, animation, sound, fonts …“) | S-01 | ja |
@@ -454,14 +467,28 @@ Ausgeschlossene Falschtreffer: src/pickups/shards.rs:44 („a grunt has 3 hp“,
 - [ ] Entschieden, ob V1 ohne OP-003 (Pickups) fertig sein darf (OP-024).
 - [ ] Geteilte Elemente G1–G10 bekannt; jede Slice, die eins ändert, ist als Risiko markiert.
 - [ ] Jede Slice hat prüfbare „Fertig wenn“, exakte Pfade und einen gezielten Test; S-12 nach Entscheidung ausgeschnitten.
-- [ ] Keine bedingten AKs: S-09a, S-10, S-13 sind frei davon; S-11 ist für die Empfehlung D-C + T-A0 geschnitten und wird neu geschnitten, falls OP-008/OP-019 anders entschieden werden; S-12 nach OP-007.
+- [ ] Keine bedingten AKs in den Slices, die starten sollen: S-07, S-08, S-09a, S-09b, S-10 sind frei davon (Annahmen OP-029–OP-031, R2-1, R2-3, R2-4, R2-7 als Default). **S-11, S-12 und S-13 sind nicht ready**, siehe Tabelle „Schneidbarkeit“.
 - [ ] S-07 (Baseline) gelaufen, Ergebnis in playtest-notes/.
 - [ ] Testumgebung geklärt: gezielter Test im Executor, volle Suite am Ende, CI-Laufzeit mit neuen Kriterien-Tests akzeptiert (S-13 Punkt 3).
 - [ ] Keine Treffer der verworfenen Begriffe in neuen Texten.
 - [ ] Kritiker-Urteil „ready“ (letzte Runde ohne Blockierendes; Ready-Gate-Runde Opus).
 - [ ] Jannus hat freigegeben.
 
-Teilstart erlaubt: S-01, S-07 (nach S-04) und S-02 Rest (nach OK) hängen an keiner offenen Frage; S-08 nach S-07 (OP-018 entschieden); S-09a nach S-07 (OP-030 als Annahme); S-10 nach S-07 (OP-026/OP-027 entschieden).
+**Schneidbarkeit (Teilstart erlaubt):**
+
+| Slice | Stand | startbar / schneidbar nach |
+|---|---|---|
+| S-01 | ready | Merge S-04 (README, docs/STAND.md:16) |
+| S-02 Rest | ready | OK Jannus (OP-014) |
+| S-07 | ready | Merge S-04; Annahmen OP-029 (Fassung R2-3), OP-031, R2-1 |
+| S-08 | ready | Merge S-07 (OP-018 entschieden) |
+| S-09a | ready | Merge S-07; Annahme OP-030 (Fassung R2-4) |
+| S-09b | ready | Merge S-09a; Annahme R2-7 |
+| S-10 | ready | Merge S-07 (OP-026, OP-027 entschieden); Folge eines negativen Befunds R2-6 betrifft erst S-13 |
+| S-11 | Entwurf, nicht ready | OP-008, OP-019, R2-2; dann Neuschnitt oder Bestätigung des Entwurfs |
+| S-12 | nicht geschnitten | OP-007 |
+| S-13 | Entwurf, nicht ready | Schwellen K1–K3 (OP-021, nach S-07) mit OP-032; OP-007 (K3), OP-019 (K5), R2-5/R2-6 (K4); OP-024 |
+| H-1 / H-2 | Jannus | nach S-08 / nach S-11 |
 
 ## Anhang A · Bestehende Slice-Texte (aus dem Ist-Plan, nur Modell/Effort und Pfade nachgetragen)
 
@@ -513,3 +540,21 @@ Quelle: Kritik-Runde 1 zu Commit abbdd5c (Befunde B1–B19; die Kopfzeile der Kr
 | B17 Normierung A-A beim Executor | klein | umgesetzt: aus S-10 entfernt → OP-026, entschieden 2026-11-17 | S-10, §4.6 OP-026 |
 | B18 S-11-AK-Lücken | klein | umgesetzt: Dauer 0, `in_band`-Wirkung, `DECISIONS`/`decision_name`/`parse_decision`, Spalte „Oberfläche“ je Option, Opus für S-12 als vorläufig markiert | S-11, §4 Tabellen, S-12 |
 | B19 Aufwand/Parallelität | klein | teilweise: S-07 ∥ S-09a und S-08 ∥ S-09b in „nicht parallel“, Kante S-07 → S-09a. **Abgelehnt:** Aufwand in Tool-Calls (Konvention OP.md: Laufzeit in Minuten) und Teilen von S-07/S-08 (Code-Teil klein, Laufzeit misst S-07 selbst; Teilen würde OP-Verweise auf S-07 aufspalten) | §6 Parallel-Zeile, Graph |
+
+## Kritik R2 → wo umgesetzt
+Quelle: Kritik-Runde 2 zu Commit aae29de (0 blockierend, 6 wichtig, 6 klein). Neue Entscheidungsfragen stehen in §4.7 als R2-1 bis R2-7.
+
+| Befund | Schwere | Ergebnis | Wo |
+|---|---|---|---|
+| B1 S-11-Erfolgsmaß ohne Baseline | wichtig | umgesetzt: Maß „nach anheben“ in S-07 Punkt 2 (Welle i+1 nach `Raised`, Nenner und Anzahl), S-11 vergleicht dagegen; Wortlaut OP-025 unverändert. Mindeststichprobe → R2-1 (Annahme) | S-07 Punkt 2/6, S-11 Punkt 5, §4.7 R2-1 |
+| B2 K5 nicht trennscharf | wichtig | Problem in der K5-Zeile benannt, Testtext an Empfehlung gebunden; K5-Maß ist Jannus' Sache → R2-2 (später, vor S-11) | §2 K5, S-11 Punkt 6, §4.7 R2-2 |
+| B3 S-07 misst relativ, S-11 steuert absolut | wichtig | umgesetzt: S-07 misst zusätzlich absolute Stufen t, S-11 wählt seine Schwelle daraus; Median je Session, ohne in-flow-Wellen „–“; Anpassung OP-029 → R2-3 (Annahme) | S-07 Punkt 2, §4.2, S-11 Punkt 5, §4.7 R2-3 |
+| B4 „gesehen“ am Ende des Wind-ups | wichtig | umgesetzt (geprüft: steering.rs:33–50, `TELL_LANE` = 50 in bot.rs:41; Richtung fest ab Wind-up-Start, movement.rs:87–92): „gesehen“ beim ersten Tick des Tells; Anpassung OP-030 → R2-4 (Annahme); Unit-Test für Ausweichen während des Wind-ups | S-09a Punkt 2/Fertig wenn, S-09b Punkt 3, §4.7 R2-4 |
+| B5 K4-Text vs. OP-027, mikro-Paar, negativer makro-Befund | wichtig | (a) Widerspruch markiert, Wortlaut nicht geändert (von Jannus angenommen) → R2-5; (b) mikro-Paar als Vorschlag Planer markiert → R2-7; (c) Folge → R2-6 | §2 K4, S-09b Punkt 3b, S-10 Fertig wenn, §4.7 |
+| B6 bedingte AKs in S-11/S-13 | wichtig | umgesetzt: S-11 und S-13 als „Entwurf, nicht ready“ markiert, Gate-Zeile korrigiert, Tabelle „Schneidbarkeit“ je Slice mit den OPs, nach denen sie schneidbar ist; keine neue Entscheidung nötig | §9, S-11 Kopf, S-13 Kopf |
+| B7 Parallel-Lücken | klein | umgesetzt: S-09a ∥ S-10, S-10 ∥ S-11, README-Reihenfolge S-01/S-08/S-10/S-13, S-01 nach S-04 | §6 Parallel-Zeile |
+| B8 OP-023 ohne Schritt | klein | umgesetzt: S-13 Punkt 4 mit Pfaden und `rg`-Kontrolle; §8 an OP-023 („spätestens S-13“) angeglichen | S-13, §8 |
+| B9 Kopf, Vorschlag-Label, CI-Zeit | klein | umgesetzt: Kopf nennt OP-025–OP-028; „Gegenprüfung nach S-08“ in S-13 als Vorschlag Planer markiert. CI 15 vs. 16 min betrifft OP.md (OP-014), Sync beim Leiter; der Plan bleibt bei STAND.md:3 (16 min) | Kopf, S-13 Kopf |
+| B10 Mixname für S-09b-Vergleich | klein | umgesetzt: S-07 läuft mit explizitem `--enemies <S-04-Mix>` und schreibt Namen und Befehle in die Baseline | S-07 Punkt 5/6 |
+| B11 K3-Test ohne Seeds/Minuten | klein | umgesetzt: S-13 Punkt 1 nach Messvorschrift OP-031 | S-13 Punkt 1 |
+| B12 spawning.rs:13 | klein | umgesetzt: auf :14 korrigiert (3 Stellen) | §4.3 H-D, §5, S-12 |
