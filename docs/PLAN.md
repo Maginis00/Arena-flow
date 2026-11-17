@@ -1,6 +1,6 @@
 # PLAN Arena-flow
 
-> **Entwurf Ist-Stand, V1-Plan folgt mit Planer.** Angelegt 2026-11-10 vom Projekt-Bot aus dem Repo-Stand main = #22, Nachtrag Entscheidungen 2026-11-10.
+> **Entwurf Ist-Stand, V1-Plan folgt mit Planer.** Angelegt 2026-11-10 vom Leiter aus dem Repo-Stand main = #22, Nachtrag Entscheidungen 2026-11-10, Nachtrag 2026-11-17 nach #25.
 > Enthält nur, was im Repo oder im Chat mit Jannus belegt ist. Richtung für V1 entschieden (OP-001), Slices für V1 sind **nicht entschieden**.
 > Miro-Link: noch keiner.
 
@@ -54,7 +54,7 @@ Nach OP-001 (V1 = fertiger Testaufbau, Spiel danach) gehören Game-Over, HUD und
 Alle Balance-Zahlen sind Platzhalter, keine davon ist entschieden (OP-005, OP-006).
 
 ## Slice-Kandidaten (Vorschlag, nicht entschieden)
-Reihenfolge und Umfang klärt der Planer-Bot mit Jannus. Modell/Effort wählt der Leiter per Auswahlbox beim Slice-Start. Aufwände sind Schätzungen.
+Reihenfolge und Umfang klärt der Planer (Sub-Agent) mit Jannus. Modell/Effort wählt der Leiter per Auswahlbox beim Slice-Start. Aufwände sind Schätzungen.
 
 **S-01 · README an den Code angleichen** · Ziel: README beschreibt den Ist-Stand, damit Planer und Playtests nicht von veralteten Angaben ausgehen · Abhängigkeiten: keine
 Was: 1. Gegner-hp-Satz (README.md:52) durch Verweis auf die Arten ersetzen. 2. `ARENA_ENEMIES` (grunt, Artname, all) und `ARENA_PICKUPS` (classic, far, shards, shards-range, shards-bolts) dokumentieren. 3. `cargo play` / Feature `fx` und Taste M (stumm) aufnehmen; Sound aus „Intentionally not built“ (README.md:175) nehmen. 4. `strategy_search` und `agent_play` kurz erwähnen.
@@ -62,7 +62,7 @@ Pfade: README.md
 Fertig wenn: jede genannte Env-Variable und jedes Beispiel existiert im Code; keine Inhaltsentscheidung neu getroffen; `cargo test` unverändert grün.
 Nicht-Ziele: Code, Werte, neue Features. · Test: `cargo test` · Aufwand: ca. 5–10 min, S · OPs: OP-013
 
-**S-02 · Test-CI für PRs** · Ziel: fmt, clippy und Tests laufen automatisch auf jedem PR · Abhängigkeiten: OK von Jannus (OP-014)
+**S-02 · Test-CI für PRs** · **Teilweise umgesetzt in #25** (nur `cargo test`, mit `rust-cache` statt Build-Cache). Rest: fmt + clippy · Ziel: fmt, clippy und Tests laufen automatisch auf jedem PR · Abhängigkeiten: OK von Jannus (OP-014)
 Was: 1. Workflow, der `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test` ausführt. 2. Den vorhandenen Build-Cache (Release-Assets `build-cache`) nutzen, damit Bevy nicht jedes Mal neu baut.
 Pfade: .github/workflows/ (neue Datei), ggf. Hinweis in README.md
 Fertig wenn: Workflow läuft auf einem Test-PR grün; ein absichtlicher clippy-Fehler macht ihn rot.
