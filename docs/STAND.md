@@ -8,9 +8,13 @@ Richtung (OP-001): V1 = fertiger Testaufbau für den Flow-Director, danach Spiel
 - #23 Projekt-Doku: STAND, OP und PLAN (Ist-Stand nach #22) (2026-11-10)
 ## Offene PRs
 - keine (Stand 2026-11-17; dieser Doku-PR ausgenommen)
+## Laufend (seit 2026-11-17 13:07 UTC)
+- Planer (Opus, high): V1-Plan, Branch `docs/arena-flow-plan-r1`
+- Executor S-04 (Sonnet, medium): Standard-Gegnermix, Branch `feat/s-04`
+- Executor S-06 (Sonnet, low): Playtest-Vorlage, Branch `feat/s-06`
 ## Nächste Slice
-V1-Plan mit Planer, blockiert durch: nichts. Ohne Planer sofort machbar: S-04 (Gegnermix), S-01 (README), S-06 (Playtest-Vorlage).
+S-01 (README) erst nach Merge von S-04 (beide ändern README.md).
 ## Offene Entscheidungen
-blockierend: OP-003, OP-012 · gesamt offen: 17 (Details in docs/OP.md)
+blockierend: OP-003, OP-012 (Jannus 2026-11-17: bewusst später, Planer plant Pickups als offenen Punkt) · gesamt offen: 17 (Details in docs/OP.md)
 ## Letzte Kritikrunde
 keine · Merges seit dann: 3
