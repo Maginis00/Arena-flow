@@ -49,7 +49,10 @@ and only the selected weapon fires.
 | 2 | Hitscan | 0.35 s | 2 | first enemy on a 520 ray |
 | Right mouse | Melee arc | 2 s (0.45 s as weapon 3) | 3 | every enemy in a 120° arc, radius 75 |
 
-Enemies have 3 hp.
+Enemies have 3 hp. Waves mix grunts, chargers and swarms by default; set
+`ARENA_ENEMIES=grunt` for grunts only (the old game), or `shooter`, `brute`,
+`charger`, `summoner`, `swarm` (grunts plus that kind) or `all`. `ARENA_ENEMIES=standard`
+is the default.
 
 ## Pickups (all numbers placeholder)
 
