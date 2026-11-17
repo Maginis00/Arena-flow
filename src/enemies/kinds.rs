@@ -52,12 +52,15 @@ impl fmt::Display for EnemyKind {
 /// deterministic slot pattern, so a mix is repeatable (no RNG).
 ///
 /// Set it by inserting the resource, or for the game window with the
-/// `ARENA_ENEMIES` environment variable (`grunt`, a kind name, or `all`).
+/// `ARENA_ENEMIES` environment variable (`standard`, `grunt`, a kind name, or
+/// `all`).
 #[derive(Resource, Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum EnemyMix {
     /// Only grunts: the game as it was before other kinds existed.
-    #[default]
     Grunts,
+    /// The default: grunts with chargers and swarms mixed in.
+    #[default]
+    Standard,
     /// Grunts with one other kind mixed in.
     With(EnemyKind),
     /// Every kind.
@@ -72,6 +75,7 @@ impl fmt::Display for EnemyMix {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Grunts => f.write_str("grunts"),
+            Self::Standard => f.write_str("standard"),
             Self::With(kind) => write!(f, "grunts + {kind}"),
             Self::All => f.write_str("all"),
         }
@@ -86,6 +90,9 @@ impl FromStr for EnemyMix {
         if name == "all" {
             return Ok(Self::All);
         }
+        if name == "standard" {
+            return Ok(Self::Standard);
+        }
         if name == "grunt" || name == "grunts" {
             return Ok(Self::Grunts);
         }
@@ -95,7 +102,7 @@ impl FromStr for EnemyMix {
             .map(Self::With)
             .ok_or_else(|| {
                 format!(
-                    "unknown enemy mix {s:?}; expected grunt, shooter, brute, charger, summoner, swarm or all"
+                    "unknown enemy mix {s:?}; expected standard, grunt, shooter, brute, charger, summoner, swarm or all"
                 )
             })
     }
@@ -219,10 +226,26 @@ const ALL_MIX: [Slot; 5] = [
     },
 ];
 
+/// PLACEHOLDER: the `standard` mix (grunt, charger, swarm). Earlier entries
+/// win a shared slot. A wave of 8 already holds both specials.
+const STANDARD_MIX: [Slot; 2] = [
+    Slot {
+        kind: EnemyKind::Swarm,
+        first: 2,
+        every: 4,
+    },
+    Slot {
+        kind: EnemyKind::Charger,
+        first: 4,
+        every: 5,
+    },
+];
+
 /// The kind for spawn `slot` (1-based) of a wave.
 pub(super) fn kind_for_slot(mix: EnemyMix, slot: u32) -> EnemyKind {
     let special = match mix {
         EnemyMix::Grunts => None,
+        EnemyMix::Standard => STANDARD_MIX.into_iter().find(|s| s.takes(slot)),
         EnemyMix::With(kind) => Some(alone(kind)).filter(|s| s.takes(slot)),
         EnemyMix::All => ALL_MIX.into_iter().find(|s| s.takes(slot)),
     };
@@ -249,6 +272,25 @@ mod tests {
                 .iter()
                 .all(|k| *k == EnemyKind::Grunt)
         );
+    }
+
+    #[test]
+    fn standard_mix_is_grunt_charger_and_swarm_only() {
+        use EnemyKind::{Charger as C, Grunt as G, Swarm as W};
+        let first = wave(EnemyMix::Standard, 10);
+        assert_eq!(first, [G, W, G, C, G, W, G, G, C, W].to_vec());
+        assert_eq!(first, wave(EnemyMix::Standard, 10), "deterministic");
+        let big = wave(EnemyMix::Standard, 40);
+        for kind in EnemyKind::ALL {
+            let wanted = matches!(kind, G | C | W);
+            assert_eq!(big.contains(&kind), wanted, "{kind} in {big:?}");
+        }
+        assert!(wave(EnemyMix::Standard, 8).contains(&C));
+    }
+
+    #[test]
+    fn standard_is_the_default_mix() {
+        assert_eq!(EnemyMix::default(), EnemyMix::Standard);
     }
 
     #[test]
@@ -288,6 +330,8 @@ mod tests {
     #[test]
     fn mix_names_parse() {
         assert_eq!("all".parse(), Ok(EnemyMix::All));
+        assert_eq!("Standard".parse(), Ok(EnemyMix::Standard));
+        assert_eq!("grunts".parse(), Ok(EnemyMix::Grunts));
         assert_eq!("Grunt".parse(), Ok(EnemyMix::Grunts));
         assert_eq!("brute".parse(), Ok(EnemyMix::With(EnemyKind::Brute)));
         assert!("dragon".parse::<EnemyMix>().is_err());
