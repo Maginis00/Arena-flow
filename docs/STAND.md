@@ -8,13 +8,14 @@ Richtung (OP-001): V1 = fertiger Testaufbau für den Flow-Director, danach Spiel
 - #25 CI: cargo test on every PR and push to main (2026-11-10)
 - #24 Doku: Entscheidungen Jannus 2026-11-10 (OP-001, OP-002, OP-003), Flow-Modell, STAND nach #23 (2026-11-10)
 ## Offene PRs
-- keine fertigen; Planer und S-04 laufen noch
+- #29 V1-Plan (Planer r1), wartet auf Kritik R1
+- #28 dieser Doku-PR
 ## Laufend (seit 2026-11-17 13:07 UTC)
-- Planer (Opus, high): V1-Plan, Branch `docs/arena-flow-plan-r1`
+- Kritiker R1 (Sonnet, medium): V1-Plan PR #29
 - Executor S-04 (Sonnet, medium): Standard-Gegnermix, Branch `feat/s-04`
 ## Nächste Slice
-S-01 (README) erst nach Merge von S-04 (beide ändern README.md).
+Nach Merge S-04: S-07 Baseline-Messung (Plan r1), danach S-08 Wellenplan (OP-018 entschieden). S-01 (README) erst nach Merge von S-04 (beide ändern README.md).
 ## Offene Entscheidungen
-blockierend: OP-003, OP-012 (Jannus 2026-11-17: bewusst später, Planer plant Pickups als offenen Punkt) · gesamt offen: 18 (Details in docs/OP.md)
+blockierend: OP-003, OP-012 (Jannus 2026-11-17: bewusst später, Planer plant Pickups als offenen Punkt) · gesamt offen: 19 (Details in docs/OP.md)
 ## Letzte Kritikrunde
 keine · Merges seit dann: 5
