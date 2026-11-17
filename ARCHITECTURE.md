@@ -163,7 +163,7 @@ game window and `--sword key3` for the playtest example.
 Every enemy carries an `EnemyKind`: grunt (the original), shooter, brute,
 charger, summoner, swarm. The `EnemyMix` resource says which kinds a wave holds;
 `kinds::kind_for_slot` fills each spawn slot of a wave from a fixed pattern,
-so a mix is deterministic. The default mix is grunts only, which is the game as
+so a mix is deterministic. The default mix is `standard` (grunt, charger, swarm); `grunt` is the game as
 it was. `ARENA_ENEMIES=<mix>` sets it for the game window and `--enemies` for
 the playtest example. Speed and contact damage of every kind are multiples of
 the director's levers, so the director still scales them all.

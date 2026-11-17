@@ -36,8 +36,8 @@
 //! cargo run --example playtest -- --watch --enemies all
 //! ```
 //!
-//! `--enemies` takes grunt (the default), shooter, brute, charger, summoner, swarm
-//! or all; repeat it to compare mixes. To play a mix yourself, set
+//! `--enemies` takes standard (the default: grunt, charger, swarm), grunt,
+//! shooter, brute, charger, summoner, swarm or all; repeat it to compare mixes. To play a mix yourself, set
 //! `ARENA_ENEMIES=all` before `cargo run`.
 //!
 //! The sword sits on the right mouse button next to the gun. `--sword key3`
@@ -182,7 +182,7 @@ fn parse(mut raw: impl Iterator<Item = String>) -> Result<Args, String> {
         args.weapons.push(None);
     }
     if args.enemies.is_empty() {
-        args.enemies.push(EnemyMix::Grunts);
+        args.enemies.push(EnemyMix::default());
     }
     if args.pins.is_empty() {
         args.pins.push(None);
@@ -281,7 +281,7 @@ fn main() -> ExitCode {
             .weapon_lock
             .map_or_else(String::new, |w| format!(" [{w} only]"));
         let mix = match c.enemies {
-            EnemyMix::Grunts => String::new(),
+            mix if mix == EnemyMix::default() => String::new(),
             mix => format!(" ({mix})"),
         };
         let pin = c.pinned.map_or_else(String::new, |d| format!(" @{d}"));
@@ -347,6 +347,7 @@ fn watch_all(args: &Args) -> ExitCode {
         if let Some(mix) = args.enemies.first() {
             let name = match mix {
                 EnemyMix::Grunts => "grunt".to_owned(),
+                EnemyMix::Standard => "standard".to_owned(),
                 EnemyMix::With(kind) => kind.to_string(),
                 EnemyMix::All => "all".to_owned(),
             };
@@ -388,6 +389,7 @@ fn save_all(
             .map_or_else(|| "director".to_owned(), |d| d.to_string());
         let mix = match c.enemies {
             EnemyMix::Grunts => "grunts".to_owned(),
+            EnemyMix::Standard => "standard".to_owned(),
             EnemyMix::With(kind) => kind.to_string(),
             EnemyMix::All => "all".to_owned(),
         };
