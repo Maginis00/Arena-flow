@@ -8,14 +8,15 @@ Richtung (OP-001): V1 = fertiger Testaufbau für den Flow-Director, danach Spiel
 - #25 CI: cargo test on every PR and push to main (2026-11-10)
 - #24 Doku: Entscheidungen Jannus 2026-11-10 (OP-001, OP-002, OP-003), Flow-Modell, STAND nach #23 (2026-11-10)
 ## Offene PRs
-- #29 V1-Plan (r2 nach Kritik R1: nicht ready, 2 blockierend → entschieden)
+- #29 V1-Plan (r4 nach Kritik R2: 0 blockierend, 6 wichtig → eingearbeitet)
+- #30 S-04 Standard-Gegnermix (Code-Prüfer grün, Risiko ja → Kritik vor Merge)
 - #28 dieser Doku-PR
 ## Laufend (seit 2026-11-17 13:07 UTC)
-- Planer r3: Entscheidungen OP-025–OP-028 in PLAN.md übernehmen, danach Kritik R2
-- Executor S-04 (Sonnet, medium): Standard-Gegnermix, Branch `feat/s-04`
+- Kritiker R3 (Ready-Gate, Opus): V1-Plan PR #29 nach Planer r4
+- Kritiker (Opus): Risiko-PR #30 S-04 (Code-Prüfer grün, Risiko Nr. 3 Balance)
 ## Nächste Slice
 Nach Merge S-04: S-07 Baseline-Messung (Plan r1), danach S-08 Wellenplan (OP-018 entschieden). S-01 (README) erst nach Merge von S-04 (beide ändern README.md).
 ## Offene Entscheidungen
-blockierend: OP-003, OP-012 (Jannus 2026-11-17: bewusst später, Planer plant Pickups als offenen Punkt) · gesamt offen: 24 (Details in docs/OP.md)
+blockierend: OP-003, OP-012 (Jannus 2026-11-17: bewusst später, Planer plant Pickups als offenen Punkt) · gesamt offen: 29 (Details in docs/OP.md)
 ## Letzte Kritikrunde
-R1 V1-Plan 2026-11-17: nicht ready (2 blockierend, 10 wichtig, 7 klein) · Merges seit dann: 5
+R2 V1-Plan 2026-11-17: ok mit Befunden (0 blockierend, 6 wichtig, 6 klein); R1: nicht ready · Merges seit dann: 5
